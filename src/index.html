@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>組織図作成ツール（Call Name対応版）</title>
+    
+    <!-- 外部ライブラリ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <!-- スタイルシート -->
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="styles/components.css">
+</head>
+<body>
+    <div class="container">
+        <!-- ヘッダー -->
+        <div class="header">
+            <h1>組織図作成ツール（Call Name対応版）</h1>
+            <p>ExcelファイルからCall Nameベースの組織図を自動生成します</p>
+            <p><small>💡 <strong>使い方:</strong> 1️⃣ファイル選択 → 2️⃣データ検証 → 3️⃣組織図生成 → 4️⃣出力</small></p>
+        </div>
+
+        <!-- デモモード表示 -->
+        <div id="demoMode" class="demo-mode" style="display: none;">
+            デモモード: サンプルデータで動作確認中
+        </div>
+
+        <!-- ファイルドロップゾーン -->
+        <div id="dropZone" class="file-drop-zone">
+            <p>📁 Excelファイルをここにドロップまたはクリックして選択</p>
+            <p>対応形式: .xlsx, .xls</p>
+            <input type="file" id="fileInput" accept=".xlsx,.xls" style="display: none;">
+        </div>
+
+        <!-- コントロール -->
+        <div class="controls">
+            <div class="control-group">
+                <label for="baseOrgSelect">基準組織:</label>
+                <select id="baseOrgSelect">
+                    <option value="">すべて表示</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="levelSelect">階層制限:</label>
+                <select id="levelSelect">
+                    <option value="0">制限なし</option>
+                    <option value="3">3階層まで</option>
+                    <option value="4">4階層まで</option>
+                    <option value="5" selected>5階層まで</option>
+                    <option value="6">6階層まで</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="fontSizeSelect">フォントサイズ:</label>
+                <select id="fontSizeSelect">
+                    <option value="small">小</option>
+                    <option value="medium" selected>中</option>
+                    <option value="large">大</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="boxSizeSelect">ボックスサイズ:</label>
+                <select id="boxSizeSelect">
+                    <option value="small">小</option>
+                    <option value="medium" selected>中</option>
+                    <option value="large">大</option>
+                </select>
+            </div>
+            
+            <br>
+            
+            <button id="generateBtn" onclick="generateChart()" disabled class="btn-success">
+                組織図生成
+            </button>
+            
+            <button id="showTableBtn" onclick="showDataTable()" disabled class="btn-secondary">
+                データテーブル表示・編集
+            </button>
+            
+            <button id="validateBtn" onclick="validateData()" disabled class="btn-warning">
+                データ検証・品質チェック
+            </button>
+            
+            <button id="exportSvgBtn" onclick="exportSVG()" disabled>
+                SVG出力
+            </button>
+            
+            <button id="exportPngBtn" onclick="exportPNG()" disabled>
+                PNG出力
+            </button>
+            
+            <button id="printBtn" onclick="printChart()" disabled>
+                印刷
+            </button>
+            
+            <button onclick="loadSampleData()" class="btn-warning">
+                サンプルデータ読み込み
+            </button>
+        </div>
+
+        <!-- 統計情報 -->
+        <div id="stats" class="stats" style="display: none;">
+            <strong>📊 データ統計:</strong>
+            <span id="statsContent"></span>
+        </div>
+
+        <!-- エラー表示 -->
+        <div id="errors" class="errors" style="display: none;"></div>
+
+        <!-- データテーブルセクション -->
+        <div id="dataTableSection" class="data-table-section" style="display: none;">
+            <div class="table-header">
+                <h3>データテーブル - 検証・編集</h3>
+                <div class="table-controls">
+                    <button onclick="addNewRow()" class="btn-success">新規行追加</button>
+                    <button onclick="applyChanges()" class="btn-success">変更を適用</button>
+                    <button onclick="hideDataTable()" class="btn-secondary">テーブルを閉じる</button>
+                </div>
+            </div>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>操作</th>
+                            <th>階層</th>
+                            <th>従業員番号</th>
+                            <th>名前</th>
+                            <th>英語名</th>
+                            <th>等級</th>
+                            <th>Team Long Name</th>
+                            <th>Call Name</th>
+                            <th>兼任</th>
+                            <th>親組織</th>
+                            <th>Role</th>
+                            <th>役割</th>
+                            <th>状態</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dataTableBody">
+                        <!-- データ行がJavaScriptで動的に生成されます -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 組織図表示エリア -->
+        <div class="chart-container">
+            <div id="orgChart"></div>
+        </div>
+    </div>
+
+    <!-- JavaScriptファイル読み込み -->
+    <script src="js/config.js"></script>
+    <script src="js/data-processor.js"></script>
+    <script src="js/layout-calculator.js"></script>
+    <script src="js/chart-renderer.js"></script>
+    <script src="js/export-utils.js"></script>
+    <script src="js/data-table-manager.js"></script>
+    <script src="js/ui-controller.js"></script>
+    <script src="js/main.js"></script>
+
+    <script>
+        // グローバル関数の定義（HTMLから直接呼び出し用）
+        function validateData() {
+            if (window.app && window.app.uiController) {
+                window.app.uiController.validateData();
+            } else {
+                alert('アプリケーションが初期化されていません');
+            }
+        }
+        
+        function showDataTable() {
+            if (window.app && window.app.uiController) {
+                window.app.uiController.showDataTable();
+            } else {
+                alert('アプリケーションが初期化されていません');
+            }
+        }
+        
+        // デモモード用のパラメータチェック
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('demo') === 'true') {
+            // デモモードフラグが設定されている場合の処理はmain.jsで実行
+            console.log('デモモードでページを開きます');
+        }
+        
+        // 開発用のデバッグ情報表示
+        if (urlParams.get('debug') === 'true') {
+            CONFIG.DEBUG.ENABLED = true;
+            console.log('デバッグモードが有効になりました');
+        }
+    </script>
+</body>
+</html>
