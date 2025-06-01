@@ -22,9 +22,12 @@ class ChartRenderer {
      * 組織図を描画（色指定対応版）
      * @param {Object} layout - レイアウト情報 { nodes, connections }
      * @param {Object} processedData - 処理済みデータ
+     * @param {Object} options - 描画オプション { hideManagers }
      */
-    render(layout, processedData) {
+    render(layout, processedData, options = {}) {
         this.processedData = processedData;
+        this.renderOptions = options;
+        this.currentLayout = layout; // 現在のレイアウトを保存
         
         // コンテナをクリア
         this.clearContainer();
@@ -33,15 +36,25 @@ class ChartRenderer {
         ConfigUtils.debugLog(`ノード数: ${layout.nodes.length}`, 'render');
         ConfigUtils.debugLog(`接続線数: ${layout.connections.length}`, 'render');
         
+        // デバッグ: レンダリング時のCSS変数の値を確認
+        const root = document.documentElement;
+        const computed = getComputedStyle(root);
+        ConfigUtils.debugLog(`レンダリング時のCSS変数:`, 'render');
+        ConfigUtils.debugLog(`  --font-size-org: ${computed.getPropertyValue('--font-size-org')}`, 'render');
+        ConfigUtils.debugLog(`  --font-size-name: ${computed.getPropertyValue('--font-size-name')}`, 'render');
+        ConfigUtils.debugLog(`  --font-size-role: ${computed.getPropertyValue('--font-size-role')}`, 'render');
+        
         // 組織ボックスを描画
         layout.nodes.forEach(node => {
             this.createOrganizationBox(node);
         });
         
-        // 接続線を描画
-        layout.connections.forEach(connection => {
-            this.createConnectionLine(connection);
-        });
+        // 接続線を描画（遅延実行で実際の高さ反映後に描画）
+        setTimeout(() => {
+            layout.connections.forEach(connection => {
+                this.createConnectionLineIfNotExists(connection);
+            });
+        }, 50);
         
         // コンテナサイズを調整
         this.adjustContainerSize(layout.nodes);
@@ -60,6 +73,10 @@ class ChartRenderer {
      */
     clearContainer() {
         this.container.innerHTML = '';
+        // 描画済み接続線の追跡をリセット
+        this.drawnConnections = new Set();
+        // 描画済み親子グループの追跡をリセット
+        this.drawnParentGroups = new Set();
     }
 
     /**
@@ -78,6 +95,14 @@ class ChartRenderer {
         box.style.left = node.x + 'px';
         box.style.top = node.y + 'px';
         
+        // 現在のボックスサイズを明示的に設定
+        const root = document.documentElement;
+        const computed = getComputedStyle(root);
+        const boxWidth = computed.getPropertyValue('--org-box-width').trim();
+        const boxHeight = computed.getPropertyValue('--org-box-height').trim();
+        if (boxWidth) box.style.width = boxWidth;
+        if (boxHeight) box.style.height = boxHeight;
+        
         // カスタム色を適用
         this.applyCustomColors(box, orgData);
         
@@ -89,10 +114,87 @@ class ChartRenderer {
         const content = this.createBoxContent(orgData);
         box.appendChild(content);
         
+        // Hide Managersモードの場合、ボックスの高さを調整
+        const hideManagers = this.renderOptions?.hideManagers || false;
+        if (hideManagers) {
+            box.classList.add('hide-managers-mode');
+            box.style.height = 'auto';
+            box.style.minHeight = '35px';
+        }
+        
         // ホバー効果のためのイベントリスナー
         this.addBoxEventListeners(box, node);
         
         this.container.appendChild(box);
+        
+        // DOMに追加後、実際の高さを取得してノード情報を更新
+        requestAnimationFrame(() => {
+            this.updateNodeActualHeight(node, box);
+            
+            // デバッグ: 最初のボックスのフォントサイズを確認
+            if (this.container.children.length === 1) {
+                const header = box.querySelector('.org-header');
+                const manager = box.querySelector('.org-manager');
+                const role = box.querySelector('.org-manager-role');
+                
+                if (header) {
+                    const headerStyle = getComputedStyle(header);
+                    ConfigUtils.debugLog(`実際のヘッダーフォントサイズ: ${headerStyle.fontSize}`, 'render');
+                }
+                if (manager) {
+                    const managerStyle = getComputedStyle(manager);
+                    ConfigUtils.debugLog(`実際の管理者名フォントサイズ: ${managerStyle.fontSize}`, 'render');
+                }
+                if (role) {
+                    const roleStyle = getComputedStyle(role);
+                    ConfigUtils.debugLog(`実際の役職フォントサイズ: ${roleStyle.fontSize}`, 'render');
+                }
+            }
+        });
+    }
+
+    /**
+     * ノードの実際の高さを更新
+     * @param {Object} node - ノード情報
+     * @param {HTMLElement} box - ボックス要素
+     */
+    updateNodeActualHeight(node, box) {
+        const actualHeight = box.offsetHeight;
+        node.actualHeight = actualHeight;
+        
+        ConfigUtils.debugLog(`${node.org}の実際の高さ: ${actualHeight}px`, 'render');
+        
+        // 接続線を再描画
+        this.redrawConnectionsForNode(node);
+    }
+
+    /**
+     * 特定ノードの接続線を再描画
+     * @param {Object} updatedNode - 更新されたノード
+     */
+    redrawConnectionsForNode(updatedNode) {
+        if (!this.currentLayout) return;
+        
+        // 該当する接続線を削除し、追跡からも削除
+        const connectionLines = this.container.querySelectorAll('.connection-line');
+        connectionLines.forEach(line => {
+            const fromOrg = line.getAttribute('data-from');
+            const toOrg = line.getAttribute('data-to');
+            if (fromOrg === updatedNode.org || toOrg === updatedNode.org) {
+                line.remove();
+                // 追跡セットからも削除
+                if (this.drawnConnections) {
+                    this.drawnConnections.delete(`${fromOrg}->${toOrg}`);
+                }
+            }
+        });
+        
+        // 接続線を再作成（重複描画を防ぐ）
+        this.currentLayout.connections.forEach(connection => {
+            if (connection.from.org === updatedNode.org || connection.to.org === updatedNode.org) {
+                this.createConnectionLineIfNotExists(connection);
+            }
+        });
     }
 
     /**
@@ -128,7 +230,7 @@ class ChartRenderer {
     }
 
     /**
-     * ボックスヘッダーを作成（色対応版・修正版）
+     * ボックスヘッダーを作成（色対応版・Hide Managers対応修正版）
      * @param {string} callName - Call Name
      * @param {Object} orgData - 組織データ
      * @returns {HTMLElement} ヘッダー要素
@@ -137,8 +239,21 @@ class ChartRenderer {
         const header = document.createElement('div');
         header.className = 'org-header';
         
-        // Call Nameをそのまま表示
-        header.textContent = this.formatOrganizationName(callName);
+        // 現在のフォントサイズを明示的に設定
+        const root = document.documentElement;
+        const computed = getComputedStyle(root);
+        const fontSize = computed.getPropertyValue('--font-size-org').trim();
+        if (fontSize) {
+            header.style.fontSize = fontSize;
+        }
+        
+        // Hide Managersモードの場合はTeam Long Nameを表示、通常モードはCall Nameを表示
+        const hideManagers = this.renderOptions?.hideManagers || false;
+        if (hideManagers && orgData.teamLongName) {
+            header.textContent = orgData.teamLongName;
+        } else {
+            header.textContent = this.formatOrganizationName(callName);
+        }
         header.setAttribute('data-call-name', callName);
         
         // ヘッダーの色を適用（修正版）
@@ -211,7 +326,7 @@ class ChartRenderer {
         legendContainer.className = 'abbreviation-legend';
         
         const legendTitle = document.createElement('h4');
-        legendTitle.textContent = 'Call Name・正式名称対応表';
+        legendTitle.textContent = t ? t('callNameLegend') : 'Call Name - Full Name Reference';
         legendContainer.appendChild(legendTitle);
         
         const table = document.createElement('table');
@@ -221,7 +336,7 @@ class ChartRenderer {
         const headerRow = document.createElement('tr');
         headerRow.innerHTML = `
             <th>Call Name</th>
-            <th>Team Long Name（正式名称）</th>
+            <th>Team Long Name</th>
         `;
         table.appendChild(headerRow);
         
@@ -293,15 +408,14 @@ class ChartRenderer {
         legendContainer.className = 'color-legend';
         
         const legendTitle = document.createElement('h4');
-        legendTitle.textContent = '色分け設定';
+        legendTitle.textContent = t ? t('colorLegend') : 'Color Coding';
         legendContainer.appendChild(legendTitle);
         
         const summary = document.createElement('div');
         summary.className = 'color-summary';
-        summary.innerHTML = `
-            カスタム色使用: ${customColorOrgs.length}組織、
-            色パターン: ${colorPatterns.size}種類
-        `;
+        summary.innerHTML = t ? 
+            t('customColorUsage', { count: customColorOrgs.length, patterns: colorPatterns.size }) :
+            `Custom colors: ${customColorOrgs.length} organizations, ${colorPatterns.size} patterns`;
         legendContainer.appendChild(summary);
         
         // 色パターンごとの詳細（パターンが少ない場合のみ）
@@ -369,21 +483,30 @@ class ChartRenderer {
         // アドバイザ情報を取得
         const advisor = orgData.advisors.length > 0 ? orgData.advisors[0] : null;
         
-        // 1. チーム長役職（左上、左揃え）
-        const managerRoleElement = this.createManagerRoleElement(manager);
-        content.appendChild(managerRoleElement);
+        // hideManagers オプションがtrueの場合、管理者を表示しない
+        const hideManagers = this.renderOptions?.hideManagers || false;
         
-        // 2. チーム長名前（中央揃え）
-        const managerNameElement = this.createManagerNameElement(manager);
-        content.appendChild(managerNameElement);
-        
-        // 3. アドバイザ役職（左揃え、85%サイズ、灰色）
-        const advisorRoleElement = this.createAdvisorRoleElement(advisor);
-        content.appendChild(advisorRoleElement);
-        
-        // 4. アドバイザ名前（中央揃え、85%サイズ、灰色）
-        const advisorNameElement = this.createAdvisorNameElement(advisor);
-        content.appendChild(advisorNameElement);
+        if (!hideManagers) {
+            // 1. チーム長役職（左上、左揃え）
+            const managerRoleElement = this.createManagerRoleElement(manager);
+            content.appendChild(managerRoleElement);
+            
+            // 2. チーム長名前（中央揃え）
+            const managerNameElement = this.createManagerNameElement(manager);
+            content.appendChild(managerNameElement);
+            
+            // 3. アドバイザ役職（左揃え、85%サイズ、灰色）
+            const advisorRoleElement = this.createAdvisorRoleElement(advisor);
+            content.appendChild(advisorRoleElement);
+            
+            // 4. アドバイザ名前（中央揃え、85%サイズ、灰色）
+            const advisorNameElement = this.createAdvisorNameElement(advisor);
+            content.appendChild(advisorNameElement);
+        } else {
+            // 管理者を非表示にする場合は、コンテンツボックス自体を非表示にする
+            content.className += ' managers-hidden';
+            content.style.display = 'none';
+        }
         
         return content;
     }
@@ -396,6 +519,14 @@ class ChartRenderer {
     createManagerRoleElement(manager) {
         const roleDiv = document.createElement('div');
         roleDiv.className = 'org-manager-role';
+        
+        // 現在のフォントサイズを明示的に設定
+        const root = document.documentElement;
+        const computed = getComputedStyle(root);
+        const fontSize = computed.getPropertyValue('--font-size-role').trim();
+        if (fontSize) {
+            roleDiv.style.fontSize = fontSize;
+        }
         
         if (manager && manager.role) {
             roleDiv.textContent = manager.role;
@@ -415,8 +546,24 @@ class ChartRenderer {
         const nameDiv = document.createElement('div');
         nameDiv.className = 'org-manager';
         
+        // 現在のフォントサイズを明示的に設定
+        const root = document.documentElement;
+        const computed = getComputedStyle(root);
+        const fontSize = computed.getPropertyValue('--font-size-name').trim();
+        if (fontSize) {
+            nameDiv.style.fontSize = fontSize;
+        }
+        
         if (manager && manager.name) {
-            nameDiv.textContent = manager.name;
+            // 兼任の場合のスタイリング
+            if (manager.isConcurrent) {
+                // 20%薄い文字色（透明度を80%に設定）
+                nameDiv.style.opacity = '0.8';
+                // 半角括弧で囲む
+                nameDiv.textContent = `(${manager.name})`;
+            } else {
+                nameDiv.textContent = manager.name;
+            }
         } else {
             nameDiv.textContent = 'N/A';
         }
@@ -432,6 +579,14 @@ class ChartRenderer {
     createAdvisorRoleElement(advisor) {
         const roleDiv = document.createElement('div');
         roleDiv.className = 'org-advisor-role';
+        
+        // 現在のフォントサイズを明示的に設定
+        const root = document.documentElement;
+        const computed = getComputedStyle(root);
+        const fontSize = computed.getPropertyValue('--font-size-role').trim();
+        if (fontSize) {
+            roleDiv.style.fontSize = `calc(${fontSize} * 0.85)`;
+        }
         
         if (advisor && advisor.role) {
             roleDiv.textContent = advisor.role;
@@ -453,8 +608,24 @@ class ChartRenderer {
         const nameDiv = document.createElement('div');
         nameDiv.className = 'org-advisor';
         
+        // 現在のフォントサイズを明示的に設定
+        const root = document.documentElement;
+        const computed = getComputedStyle(root);
+        const fontSize = computed.getPropertyValue('--font-size-name').trim();
+        if (fontSize) {
+            nameDiv.style.fontSize = `calc(${fontSize} * 0.85)`;
+        }
+        
         if (advisor && advisor.name) {
-            nameDiv.textContent = advisor.name;
+            // 兼任の場合のスタイリング
+            if (advisor.isConcurrent) {
+                // 20%薄い文字色（透明度を80%に設定）
+                nameDiv.style.opacity = '0.8';
+                // 半角括弧で囲む
+                nameDiv.textContent = `(${advisor.name})`;
+            } else {
+                nameDiv.textContent = advisor.name;
+            }
         } else {
             // アドバイザがいない場合は見えない要素として扱う
             nameDiv.className = 'org-empty';
@@ -606,35 +777,177 @@ class ChartRenderer {
     }
 
     /**
-     * 接続線を作成（修正版）
+     * 重複を防いで接続線を作成
+     * @param {Object} connection - 接続情報 { from, to }
+     */
+    createConnectionLineIfNotExists(connection) {
+        const connectionId = `${connection.from.org}->${connection.to.org}`;
+        
+        // 既に描画済みの場合はスキップ
+        if (this.drawnConnections && this.drawnConnections.has(connectionId)) {
+            ConfigUtils.debugLog(`重複描画を防止: ${connectionId}`, 'render');
+            return;
+        }
+        
+        // 接続線を作成
+        this.createConnectionLine(connection);
+        
+        // 描画済みとしてマーク
+        if (this.drawnConnections) {
+            this.drawnConnections.add(connectionId);
+        }
+        
+        ConfigUtils.debugLog(`接続線を描画: ${connectionId}`, 'render');
+    }
+
+    /**
+     * 接続線を作成（動的高さ対応版）
      * @param {Object} connection - 接続情報 { from, to }
      */
     createConnectionLine(connection) {
-        const fromX = connection.from.x + CONFIG.DEFAULTS.BOX_SIZE.width / 2;
-        const fromY = connection.from.y + CONFIG.DEFAULTS.BOX_SIZE.height;
-        const toX = connection.to.x + CONFIG.DEFAULTS.BOX_SIZE.width / 2;
+        // CSS変数から現在のボックス幅を取得
+        const root = document.documentElement;
+        const computed = getComputedStyle(root);
+        const boxWidthStr = computed.getPropertyValue('--org-box-width').trim();
+        const boxWidth = boxWidthStr ? parseInt(boxWidthStr.replace('px', '')) : CONFIG.DEFAULTS.BOX_SIZE.width;
+        const boxHeightStr = computed.getPropertyValue('--org-box-height').trim();
+        const defaultBoxHeight = boxHeightStr ? parseInt(boxHeightStr.replace('px', '')) : CONFIG.DEFAULTS.BOX_SIZE.height;
+        
+        const fromX = connection.from.x + boxWidth / 2;
+        
+        // 実際の高さを優先、なければ計算された高さを使用
+        const fromBoxHeight = connection.from.actualHeight || connection.from.boxHeight || defaultBoxHeight;
+        const fromY = connection.from.y + fromBoxHeight;
+        const toX = connection.to.x + boxWidth / 2;
         const toY = connection.to.y;
         
-        const verticalOffset = CONFIG.LAYOUT.CONNECTION_LINE_OFFSET;
+        // ボックスサイズに応じて接続線のオフセットを調整
+        let verticalOffset = CONFIG.LAYOUT.CONNECTION_LINE_OFFSET;
+        if (this.currentBoxSize === 'small') {
+            verticalOffset = 15; // Smallサイズでは接続線のオフセットを小さくする
+        }
+        
+        ConfigUtils.debugLog(`接続線描画: ${connection.from.org} → ${connection.to.org}, fromY=${fromY} (高さ=${fromBoxHeight})`, 'render');
         
         // 親と子が同一X座標の場合は直線
         if (Math.abs(fromX - toX) < 5) {
-            this.createVerticalLine(fromX, fromY, toY - fromY);
+            this.createVerticalLine(fromX, fromY, toY - fromY, connection.from.org, connection.to.org);
         } else {
-            // T字型接続線
-            // 1. 親ボックスから下向きの線
-            this.createVerticalLine(fromX, fromY, verticalOffset);
-            
-            // 2. 水平線
-            this.createHorizontalLine(
-                Math.min(fromX, toX), 
-                Math.abs(toX - fromX), 
-                fromY + verticalOffset
-            );
-            
-            // 3. 子ボックスへの上向きの線
-            this.createVerticalLine(toX, fromY + verticalOffset, toY - (fromY + verticalOffset));
+            // 個別の接続線を描画
+            this.createIndividualConnection(connection.from, connection.to, verticalOffset);
         }
+    }
+
+    /**
+     * 同じ親を持つ兄弟組織を取得
+     * @param {string} parentOrg - 親組織名
+     * @param {string} childOrg - 子組織名
+     * @returns {Array<Object>} 兄弟ノードの配列
+     */
+    getSiblingsWithSameParent(parentOrg, childOrg) {
+        if (!this.currentLayout) return [];
+        
+        // 親組織の直接の子のみを取得
+        const allChildren = this.processedData.hierarchy.get(parentOrg) || [];
+        
+        // 現在のレイアウトに含まれる直接の子ノードのみをフィルタ
+        const siblingNodes = this.currentLayout.nodes.filter(node => {
+            // 直接の子である必要がある
+            const nodeData = this.processedData.organizations.get(node.org);
+            return nodeData && nodeData.parent === parentOrg && allChildren.includes(node.org);
+        });
+        
+        ConfigUtils.debugLog(`${parentOrg}の兄弟組織: [${siblingNodes.map(n => n.org).join(', ')}]`, 'render');
+        
+        return siblingNodes;
+    }
+
+
+    /**
+     * 兄弟組織への接続線を作成
+     * @param {Object} parentNode - 親ノード
+     * @param {Array<Object>} siblingNodes - 兄弟ノードの配列
+     * @param {number} verticalOffset - 垂直オフセット
+     */
+    createSiblingConnections(parentNode, siblingNodes, verticalOffset) {
+        const root = document.documentElement;
+        const computed = getComputedStyle(root);
+        const boxWidthStr = computed.getPropertyValue('--org-box-width').trim();
+        const boxWidth = boxWidthStr ? parseInt(boxWidthStr.replace('px', '')) : CONFIG.DEFAULTS.BOX_SIZE.width;
+        const boxHeightStr = computed.getPropertyValue('--org-box-height').trim();
+        const defaultBoxHeight = boxHeightStr ? parseInt(boxHeightStr.replace('px', '')) : CONFIG.DEFAULTS.BOX_SIZE.height;
+        
+        const parentX = parentNode.x + boxWidth / 2;
+        const parentBoxHeight = parentNode.actualHeight || parentNode.boxHeight || defaultBoxHeight;
+        const parentY = parentNode.y + parentBoxHeight;
+        
+        // 兄弟ノードのX座標を取得
+        const siblingXPositions = siblingNodes.map(node => node.x + boxWidth / 2);
+        const minX = Math.min(...siblingXPositions);
+        const maxX = Math.max(...siblingXPositions);
+        
+        // 親から下への垂直線
+        this.createVerticalLine(parentX, parentY, verticalOffset, parentNode.org, '');
+        
+        // 兄弟間の水平線（最左端から最右端まで）
+        if (siblingNodes.length > 1) {
+            this.createHorizontalLine(
+                minX,
+                maxX - minX,
+                parentY + verticalOffset,
+                parentNode.org,
+                'siblings'
+            );
+        }
+        
+        // 各兄弟への垂直線
+        siblingNodes.forEach(siblingNode => {
+            const siblingX = siblingNode.x + boxWidth / 2;
+            const siblingY = siblingNode.y;
+            this.createVerticalLine(
+                siblingX,
+                parentY + verticalOffset,
+                siblingY - (parentY + verticalOffset),
+                parentNode.org,
+                siblingNode.org
+            );
+        });
+    }
+
+    /**
+     * 個別の接続線を作成（兄弟がいない場合）
+     * @param {Object} fromNode - 開始ノード
+     * @param {Object} toNode - 終了ノード
+     * @param {number} verticalOffset - 垂直オフセット
+     */
+    createIndividualConnection(fromNode, toNode, verticalOffset) {
+        const root = document.documentElement;
+        const computed = getComputedStyle(root);
+        const boxWidthStr = computed.getPropertyValue('--org-box-width').trim();
+        const boxWidth = boxWidthStr ? parseInt(boxWidthStr.replace('px', '')) : CONFIG.DEFAULTS.BOX_SIZE.width;
+        const boxHeightStr = computed.getPropertyValue('--org-box-height').trim();
+        const defaultBoxHeight = boxHeightStr ? parseInt(boxHeightStr.replace('px', '')) : CONFIG.DEFAULTS.BOX_SIZE.height;
+        
+        const fromX = fromNode.x + boxWidth / 2;
+        const fromBoxHeight = fromNode.actualHeight || fromNode.boxHeight || defaultBoxHeight;
+        const fromY = fromNode.y + fromBoxHeight;
+        const toX = toNode.x + boxWidth / 2;
+        const toY = toNode.y;
+        
+        // 1. 親ボックスから下向きの線
+        this.createVerticalLine(fromX, fromY, verticalOffset, fromNode.org, toNode.org);
+        
+        // 2. 水平線
+        this.createHorizontalLine(
+            Math.min(fromX, toX),
+            Math.abs(toX - fromX),
+            fromY + verticalOffset,
+            fromNode.org,
+            toNode.org
+        );
+        
+        // 3. 子ボックスへの上向きの線
+        this.createVerticalLine(toX, fromY + verticalOffset, toY - (fromY + verticalOffset), fromNode.org, toNode.org);
     }
 
     /**
@@ -642,13 +955,20 @@ class ChartRenderer {
      * @param {number} x - X座標
      * @param {number} y - Y座標（開始点）
      * @param {number} height - 高さ
+     * @param {string} fromOrg - 開始組織名
+     * @param {string} toOrg - 終了組織名
      */
-    createVerticalLine(x, y, height) {
+    createVerticalLine(x, y, height, fromOrg = '', toOrg = '') {
         const line = document.createElement('div');
         line.className = 'connection-line vertical';
         line.style.left = (x - 1) + 'px';
         line.style.top = y + 'px';
         line.style.height = height + 'px';
+        
+        // 識別用属性を追加
+        if (fromOrg) line.setAttribute('data-from', fromOrg);
+        if (toOrg) line.setAttribute('data-to', toOrg);
+        
         this.container.appendChild(line);
     }
 
@@ -657,8 +977,10 @@ class ChartRenderer {
      * @param {number} x - 開始X座標
      * @param {number} width - 幅
      * @param {number} y - Y座標
+     * @param {string} fromOrg - 開始組織名
+     * @param {string} toOrg - 終了組織名
      */
-    createHorizontalLine(x, width, y) {
+    createHorizontalLine(x, width, y, fromOrg = '', toOrg = '') {
         if (width <= 0) return; // 幅が0以下の場合は描画しない
         
         const line = document.createElement('div');
@@ -666,6 +988,11 @@ class ChartRenderer {
         line.style.left = x + 'px';
         line.style.top = (y - 1) + 'px';
         line.style.width = width + 'px';
+        
+        // 識別用属性を追加
+        if (fromOrg) line.setAttribute('data-from', fromOrg);
+        if (toOrg) line.setAttribute('data-to', toOrg);
+        
         this.container.appendChild(line);
     }
 
@@ -731,7 +1058,18 @@ class ChartRenderer {
                 'org-spacing-y': sizes.spacingY
             });
             
+            // 現在のフォントサイズとボックスサイズを保存
+            this.currentFontSize = fontSize;
+            this.currentBoxSize = boxSize;
+            
             ConfigUtils.debugLog(`スタイル更新完了: フォント=${fontSize}, ボックス=${boxSize}`, 'render');
+            
+            // デバッグ: CSS変数の値を確認
+            const root = document.documentElement;
+            const computed = getComputedStyle(root);
+            ConfigUtils.debugLog(`CSS変数確認: --font-size-org=${computed.getPropertyValue('--font-size-org')}`, 'render');
+            ConfigUtils.debugLog(`CSS変数確認: --font-size-name=${computed.getPropertyValue('--font-size-name')}`, 'render');
+            ConfigUtils.debugLog(`CSS変数確認: --font-size-role=${computed.getPropertyValue('--font-size-role')}`, 'render');
             
         } catch (error) {
             ConfigUtils.debugLog(`スタイル更新エラー: ${error.message}`, 'error');
@@ -834,7 +1172,19 @@ class ChartRenderer {
         // チーム長名前
         const manager = box.querySelector('.org-manager');
         if (manager && manager.textContent.trim() !== 'N/A' && manager.textContent.trim() !== '') {
-            svg += `<text x="${x + width/2}" y="${y + 55}" text-anchor="middle" font-weight="bold" font-size="9px" fill="#2d3748">${this.escapeXml(manager.textContent)}</text>`;
+            // 兼任の場合の透明度を適用
+            const opacity = manager.style.opacity || '1';
+            const fillColor = opacity === '0.8' ? '#2d374880' : '#2d3748'; // 80% opacity for concurrent
+            svg += `<text x="${x + width/2}" y="${y + 55}" text-anchor="middle" font-weight="bold" font-size="9px" fill="${fillColor}">${this.escapeXml(manager.textContent)}</text>`;
+        }
+        
+        // アドバイザ名前
+        const advisor = box.querySelector('.org-advisor');
+        if (advisor && advisor.textContent.trim() !== '' && !advisor.classList.contains('org-empty')) {
+            // 兼任の場合の透明度を適用
+            const opacity = advisor.style.opacity || '1';
+            const fillColor = opacity === '0.8' ? '#71809680' : '#718096'; // 80% opacity for concurrent
+            svg += `<text x="${x + width/2}" y="${y + 75}" text-anchor="middle" font-size="8px" fill="${fillColor}">${this.escapeXml(advisor.textContent)}</text>`;
         }
         
         return svg;

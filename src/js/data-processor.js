@@ -115,7 +115,8 @@ class DataProcessor {
                 organizations: new Map(),
                 hierarchy: new Map(),
                 managers: new Map(),
-                advisors: new Map()
+                advisors: new Map(),
+                dataOrder: new Map() // データ順序を記録
             };
             this.callNameMapping.clear();
             this.errors = [];
@@ -232,8 +233,8 @@ class DataProcessor {
         ConfigUtils.debugLog('組織データ構築開始', 'data');
         
         this.rawData.forEach((row, index) => {
-            const callName = row[6];
-            const teamLongName = row[5] || callName;
+            const callName = row[7];
+            const teamLongName = row[6] || callName;
             const level = parseInt(row[0]) || 1;
             const parent = row[8] === 'N/A' ? null : row[8];
             
@@ -261,7 +262,10 @@ class DataProcessor {
                 
                 this.processedData.organizations.set(callName, orgData);
                 
-                ConfigUtils.debugLog(`組織追加: ${callName} (Level: ${level}, Parent: ${parent || 'なし'})`, 'data');
+                // データ順序を記録（テーブル内での出現順序）
+                this.processedData.dataOrder.set(callName, index);
+                
+                ConfigUtils.debugLog(`組織追加: ${callName} (Level: ${level}, Parent: ${parent || 'なし'}, Order: ${index})`, 'data');
                 
                 // 色設定がある場合はログ出力
                 if (ConfigUtils.hasCustomColors(colors)) {
@@ -303,16 +307,18 @@ class DataProcessor {
     }
 
     /**
-     * 管理者・アドバイザ情報を処理
+     * 管理者・アドバイザ情報を処理（チームボスフラグ対応版）
      */
     processManagersAndAdvisors() {
-        ConfigUtils.debugLog('管理者・アドバイザ情報処理開始', 'data');
+        ConfigUtils.debugLog('管理者・アドバイザ情報処理開始（チームボスフラグ対応）', 'data');
         
         this.rawData.forEach(row => {
-            const callName = row[6];
+            const callName = row[7];
             const name = row[2];
             const role = row[9];
             const roleJp = row[10];
+            const teamBossFlag = row[14]; // 15列目：チームボスフラグ
+            const concurrent = row[15]; // 16列目：兼任フラグ
             
             if (!callName || !name || !role) return;
             
@@ -322,22 +328,32 @@ class DataProcessor {
             const personData = {
                 name: name,
                 role: role,
-                roleJp: roleJp
+                roleJp: roleJp,
+                isTeamBoss: teamBossFlag === 'Y' || teamBossFlag === 'y' || teamBossFlag === '1',
+                isConcurrent: concurrent === 'Y' || concurrent === 'y' || concurrent === '1'
             };
             
-            // 管理者判定
-            const isManager = CONFIG.DATA_PROCESSING.MANAGER_KEYWORDS.some(keyword => 
-                role.toLowerCase().includes(keyword.toLowerCase())
-            );
+            // チームボスフラグがある場合はそれを優先、ない場合は従来のキーワード判定
+            let isManager = false;
+            let isAdvisor = false;
             
-            // アドバイザ判定
-            const isAdvisor = CONFIG.DATA_PROCESSING.ADVISOR_KEYWORDS.some(keyword => 
-                role.toLowerCase().includes(keyword.toLowerCase())
-            );
+            if (personData.isTeamBoss) {
+                isManager = true;
+                ConfigUtils.debugLog(`チームボス判定: ${callName} - ${name} (${role})`, 'data');
+            } else {
+                // 従来のキーワード判定
+                isManager = CONFIG.DATA_PROCESSING.MANAGER_KEYWORDS.some(keyword => 
+                    role.toLowerCase().includes(keyword.toLowerCase())
+                );
+                
+                isAdvisor = CONFIG.DATA_PROCESSING.ADVISOR_KEYWORDS.some(keyword => 
+                    role.toLowerCase().includes(keyword.toLowerCase())
+                );
+            }
             
             if (isManager) {
                 orgData.managers.push(personData);
-                ConfigUtils.debugLog(`管理者追加: ${callName} - ${name} (${role})`, 'data');
+                ConfigUtils.debugLog(`管理者追加: ${callName} - ${name} (${role}) [ボス:${personData.isTeamBoss}]`, 'data');
             } else if (isAdvisor) {
                 orgData.advisors.push(personData);
                 ConfigUtils.debugLog(`アドバイザ追加: ${callName} - ${name} (${role})`, 'data');
@@ -348,8 +364,10 @@ class DataProcessor {
             .reduce((count, org) => count + org.managers.length, 0);
         const advisorCount = Array.from(this.processedData.organizations.values())
             .reduce((count, org) => count + org.advisors.length, 0);
+        const teamBossCount = Array.from(this.processedData.organizations.values())
+            .reduce((count, org) => count + org.managers.filter(m => m.isTeamBoss).length, 0);
             
-        ConfigUtils.debugLog(`管理者・アドバイザ処理完了: 管理者${managerCount}名, アドバイザ${advisorCount}名`, 'data');
+        ConfigUtils.debugLog(`管理者・アドバイザ処理完了: 管理者${managerCount}名(うちチームボス${teamBossCount}名), アドバイザ${advisorCount}名`, 'data');
     }
 
     /**
@@ -405,20 +423,124 @@ class DataProcessor {
     }
 
     /**
-     * 重複をチェック
+     * 重複をチェック（チーム長・アドバイザの同一Call Name許可版）
      */
     checkDuplicates() {
-        const callNames = new Set();
+        const callNameGroups = new Map();
         
+        // Call Name別にグループ化
         this.rawData.forEach((row, index) => {
-            const callName = row[6];
+            const callName = row[7];
+            const role = row[9];     // 修正: role = row[9]
+            const teamBossFlag = row[14]; // 修正: teamBossFlag = row[14]
             
-            if (callNames.has(callName)) {
-                this.errors.push(`重複するCall Name: ${callName} (行${index + 2})`);
-            } else {
-                callNames.add(callName);
+            if (!callNameGroups.has(callName)) {
+                callNameGroups.set(callName, []);
+            }
+            
+            callNameGroups.get(callName).push({
+                row: row,
+                index: index,
+                role: role,
+                teamBossFlag: teamBossFlag
+            });
+        });
+        
+        // 各Call Nameグループをチェック
+        callNameGroups.forEach((group, callName) => {
+            if (group.length > 1) {
+                // デバッグログ: グループの詳細を出力
+                ConfigUtils.debugLog(`Call Name "${callName}" 重複チェック:`, 'data');
+                group.forEach((person, i) => {
+                    ConfigUtils.debugLog(`  ${i + 1}. 行${person.index + 2}: role="${person.role}", teamBoss="${person.teamBossFlag}"`, 'data');
+                });
+                
+                // 複数人いる場合、チーム長とアドバイザの組み合わせかチェック
+                const isValidCombination = this.isValidRoleCombination(group);
+                
+                ConfigUtils.debugLog(`  判定結果: ${isValidCombination ? '有効' : '無効'}`, 'data');
+                
+                if (!isValidCombination) {
+                    const rowNumbers = group.map(g => g.index + 2).join(', ');
+                    this.errors.push(`不正な重複Call Name: ${callName} (行${rowNumbers}) - 同じ組織内で同じ役割の複数人または不正な組み合わせ`);
+                }
             }
         });
+    }
+    
+    /**
+     * 役割の組み合わせが有効かチェック
+     * @param {Array} group - 同一Call Nameの人員グループ
+     * @returns {boolean} 有効な組み合わせかどうか
+     */
+    isValidRoleCombination(group) {
+        const managers = [];
+        const advisors = [];
+        const others = [];
+        
+        group.forEach(person => {
+            const role = person.role.toLowerCase();
+            const isTeamBoss = person.teamBossFlag === 'Y' || person.teamBossFlag === 'y' || person.teamBossFlag === '1';
+            
+            // チームボスフラグがある場合は管理者として分類
+            if (isTeamBoss) {
+                managers.push(person);
+            } else {
+                // キーワード判定
+                const isManager = CONFIG.DATA_PROCESSING.MANAGER_KEYWORDS.some(keyword => 
+                    role.includes(keyword.toLowerCase())
+                );
+                const isAdvisor = CONFIG.DATA_PROCESSING.ADVISOR_KEYWORDS.some(keyword => 
+                    role.includes(keyword.toLowerCase())
+                );
+                
+                if (isManager) {
+                    managers.push(person);
+                } else if (isAdvisor) {
+                    advisors.push(person);
+                } else {
+                    others.push(person);
+                }
+            }
+        });
+        
+        // デバッグ出力: 分類結果
+        ConfigUtils.debugLog(`    分類結果: 管理者${managers.length}名, アドバイザ${advisors.length}名, その他${others.length}名`, 'data');
+        managers.forEach(m => ConfigUtils.debugLog(`      管理者: "${m.role}" (チームボス: ${m.teamBossFlag})`, 'data'));
+        advisors.forEach(a => ConfigUtils.debugLog(`      アドバイザ: "${a.role}" (チームボス: ${a.teamBossFlag})`, 'data'));
+        others.forEach(o => ConfigUtils.debugLog(`      その他: "${o.role}" (チームボス: ${o.teamBossFlag})`, 'data'));
+        
+        // 有効な組み合わせの条件：
+        // 1. チーム長1名のみ
+        // 2. チーム長1名 + アドバイザ1名
+        // 3. アドバイザ1名のみ
+        // 無効なケース：
+        // - チーム長2名以上
+        // - アドバイザ2名以上
+        // - その他の役割が混在
+        
+        if (managers.length > 1) {
+            ConfigUtils.debugLog(`無効：チーム長複数 ${managers.length}名`, 'data');
+            return false;
+        }
+        
+        if (advisors.length > 1) {
+            ConfigUtils.debugLog(`無効：アドバイザ複数 ${advisors.length}名`, 'data');
+            return false;
+        }
+        
+        if (others.length > 0) {
+            ConfigUtils.debugLog(`無効：その他の役割が混在 ${others.length}名`, 'data');
+            return false;
+        }
+        
+        // チーム長1名 + アドバイザ1名、またはどちらか1名のみは有効
+        if ((managers.length <= 1) && (advisors.length <= 1)) {
+            ConfigUtils.debugLog(`有効な組み合わせ：チーム長${managers.length}名、アドバイザ${advisors.length}名`, 'data');
+            return true;
+        }
+        
+        return false;
     }
 
     /**
@@ -448,7 +570,7 @@ class DataProcessor {
             statistics.levelCounts.set(level, currentCount + 1);
         });
         
-        // 詳細検証
+        // 詳細検証（チームボスフラグ対応版）
         this.processedData.organizations.forEach((orgData, orgName) => {
             // 階層レベルの整合性チェック
             if (orgData.parent && orgData.parent !== 'N/A') {
@@ -460,9 +582,25 @@ class DataProcessor {
                 }
             }
             
-            // 管理者不在の警告
+            // チームボス人数チェック
+            const teamBossCount = orgData.managers.filter(m => m.isTeamBoss).length;
+            if (teamBossCount >= 2) {
+                errors.push(`チームボス複数エラー: ${orgName} にチームボスが${teamBossCount}名います（${orgData.managers.filter(m => m.isTeamBoss).map(m => m.name).join(', ')}）`);
+            }
+            
+            // アドバイザ人数チェック
+            if (orgData.advisors.length >= 2) {
+                errors.push(`アドバイザ複数エラー: ${orgName} にアドバイザが${orgData.advisors.length}名います（${orgData.advisors.map(a => a.name).join(', ')}）`);
+            }
+            
+            // 管理者不在の警告（従来通り）
             if (orgData.managers.length === 0) {
                 warnings.push(`管理者不在: ${orgName}`);
+            }
+            
+            // チームボス不在の警告（一般管理者はいるがチームボスがいない場合）
+            if (orgData.managers.length > 0 && teamBossCount === 0) {
+                warnings.push(`チームボス不在: ${orgName} に管理者はいますがチームボスが明示されていません`);
             }
         });
         
@@ -582,6 +720,14 @@ class DataProcessor {
             customColors: colorStats.customCount,
             colorPatterns: colorStats.patternCount
         };
+    }
+
+    /**
+     * 生データを取得
+     * @returns {Array<Array>} 生データの配列
+     */
+    getRawData() {
+        return this.rawData || [];
     }
 
     /**
