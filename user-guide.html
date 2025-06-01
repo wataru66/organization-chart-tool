@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Organization Chart Tool - User Guide</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8f9fa;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .nav-menu {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 20px;
+            z-index: 100;
+        }
+
+        .nav-menu ul {
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .nav-menu a {
+            color: #4299e1;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .nav-menu a:hover {
+            background: #4299e1;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .section {
+            background: white;
+            margin-bottom: 30px;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            color: #2d3748;
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+            border-bottom: 3px solid #4299e1;
+            padding-bottom: 10px;
+        }
+
+        .section h3 {
+            color: #4a5568;
+            margin: 25px 0 15px 0;
+            font-size: 1.3rem;
+        }
+
+        .section h4 {
+            color: #718096;
+            margin: 20px 0 10px 0;
+            font-size: 1.1rem;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .feature-card {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #4299e1;
+        }
+
+        .feature-card h4 {
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+
+        .step-list {
+            counter-reset: step-counter;
+            list-style: none;
+            margin: 20px 0;
+        }
+
+        .step-list li {
+            counter-increment: step-counter;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #edf2f7;
+            border-radius: 8px;
+            position: relative;
+            padding-left: 60px;
+        }
+
+        .step-list li::before {
+            content: counter(step-counter);
+            position: absolute;
+            left: 20px;
+            top: 15px;
+            background: #4299e1;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .code-block {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            margin: 15px 0;
+            overflow-x: auto;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        th {
+            background: #4299e1;
+            color: white;
+            font-weight: bold;
+        }
+
+        tr:hover {
+            background: #f7fafc;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid;
+        }
+
+        .alert-info {
+            background: #ebf8ff;
+            border-color: #4299e1;
+            color: #2c5282;
+        }
+
+        .alert-warning {
+            background: #fffbeb;
+            border-color: #f6ad55;
+            color: #c05621;
+        }
+
+        .alert-success {
+            background: #f0fff4;
+            border-color: #48bb78;
+            color: #2f855a;
+        }
+
+        .color-palette {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .color-item {
+            text-align: center;
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+        }
+
+        .color-sample {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin: 0 auto 10px;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .screenshot {
+            width: 100%;
+            max-width: 600px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin: 20px 0;
+        }
+
+        .button-demo {
+            display: inline-block;
+            padding: 8px 16px;
+            background: #4299e1;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            text-decoration: none;
+            margin: 5px;
+            cursor: pointer;
+        }
+
+        .button-demo:hover {
+            background: #3182ce;
+        }
+
+        .keyboard-shortcut {
+            background: #2d3748;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .nav-menu ul {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .step-list li {
+                padding-left: 50px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>📊 Organization Chart Tool</h1>
+            <p>Complete User Guide & Documentation</p>
+        </header>
+
+        <nav class="nav-menu">
+            <ul>
+                <li><a href="#getting-started">Getting Started</a></li>
+                <li><a href="#excel-format">Excel Format</a></li>
+                <li><a href="#basic-usage">Basic Usage</a></li>
+                <li><a href="#advanced-features">Advanced Features</a></li>
+                <li><a href="#customization">Customization</a></li>
+                <li><a href="#export-options">Export Options</a></li>
+                <li><a href="#troubleshooting">Troubleshooting</a></li>
+            </ul>
+        </nav>
+
+        <section id="getting-started" class="section">
+            <h2>🚀 Getting Started</h2>
+            
+            <div class="alert alert-info">
+                <strong>Quick Start:</strong> Open <code>src/index.html</code> in your browser and click "Load Sample Data" to try the tool immediately!
+            </div>
+
+            <h3>System Requirements</h3>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>🌐 Browser Support</h4>
+                    <ul>
+                        <li>Chrome 90+ (Recommended)</li>
+                        <li>Firefox 88+</li>
+                        <li>Edge 90+</li>
+                        <li>Safari 14+</li>
+                    </ul>
+                </div>
+                <div class="feature-card">
+                    <h4>📚 Dependencies</h4>
+                    <ul>
+                        <li>SheetJS (Auto-loaded)</li>
+                        <li>html2canvas (Auto-loaded)</li>
+                        <li>No additional setup required</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h3>Installation Options</h3>
+            <ol class="step-list">
+                <li><strong>Direct Use:</strong> Download the files and open <code>src/index.html</code> in your browser</li>
+                <li><strong>Local Server:</strong> Run a local web server and navigate to the application</li>
+                <li><strong>Demo Mode:</strong> Add <code>?demo=true</code> to the URL to automatically load sample data</li>
+            </ol>
+
+            <div class="code-block">
+# Using Python
+python -m http.server 8000
+
+# Using Node.js  
+npx http-server
+
+# Using PHP
+php -S localhost:8000
+            </div>
+        </section>
+
+        <section id="excel-format" class="section">
+            <h2>📊 Excel File Format</h2>
+            
+            <div class="alert alert-warning">
+                <strong>Important:</strong> The Excel file must contain specific columns in the correct order for proper processing.
+            </div>
+
+            <h3>Required Column Structure</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Column</th>
+                            <th>Name</th>
+                            <th>Required</th>
+                            <th>Description</th>
+                            <th>Example</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>A</td>
+                            <td>Level</td>
+                            <td>✅</td>
+                            <td>Hierarchy level (1-10)</td>
+                            <td>1, 2, 3</td>
+                        </tr>
+                        <tr>
+                            <td>B</td>
+                            <td>Employee ID</td>
+                            <td>❌</td>
+                            <td>Employee identifier</td>
+                            <td>EMP001, 12345</td>
+                        </tr>
+                        <tr>
+                            <td>C</td>
+                            <td>Name</td>
+                            <td>✅</td>
+                            <td>Person's full name</td>
+                            <td>John Smith</td>
+                        </tr>
+                        <tr>
+                            <td>D</td>
+                            <td>Name (EN)</td>
+                            <td>❌</td>
+                            <td>English name</td>
+                            <td>John Smith</td>
+                        </tr>
+                        <tr>
+                            <td>E</td>
+                            <td>Grade</td>
+                            <td>❌</td>
+                            <td>Job grade/level</td>
+                            <td>M4, P2, E5</td>
+                        </tr>
+                        <tr>
+                            <td>F</td>
+                            <td>Team Long Name</td>
+                            <td>❌</td>
+                            <td>Full organization name</td>
+                            <td>Production Department</td>
+                        </tr>
+                        <tr>
+                            <td>G</td>
+                            <td>Call Name</td>
+                            <td>✅</td>
+                            <td>Short organization identifier</td>
+                            <td>PROD, HQ, MFG</td>
+                        </tr>
+                        <tr>
+                            <td>H</td>
+                            <td>Concurrent</td>
+                            <td>❌</td>
+                            <td>Additional positions</td>
+                            <td>Acting Manager</td>
+                        </tr>
+                        <tr>
+                            <td>I</td>
+                            <td>Parent Org</td>
+                            <td>✅</td>
+                            <td>Parent's Call Name</td>
+                            <td>HQ, PROD (or N/A for root)</td>
+                        </tr>
+                        <tr>
+                            <td>J</td>
+                            <td>Role</td>
+                            <td>✅</td>
+                            <td>Job position/title</td>
+                            <td>Manager, President</td>
+                        </tr>
+                        <tr>
+                            <td>K</td>
+                            <td>Role (JP)</td>
+                            <td>❌</td>
+                            <td>Japanese role name</td>
+                            <td>部長, 課長</td>
+                        </tr>
+                        <tr>
+                            <td>L</td>
+                            <td>Border Color</td>
+                            <td>❌</td>
+                            <td>Custom border color</td>
+                            <td>#2196f3, blue-medium</td>
+                        </tr>
+                        <tr>
+                            <td>M</td>
+                            <td>Background Color</td>
+                            <td>❌</td>
+                            <td>Custom background color</td>
+                            <td>#e3f2fd, blue-light</td>
+                        </tr>
+                        <tr>
+                            <td>N</td>
+                            <td>Header Text Color</td>
+                            <td>❌</td>
+                            <td>Custom text color</td>
+                            <td>#ffffff, white</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>Sample Data Structure</h3>
+            <div class="code-block">
+Level | Name        | Call Name | Parent Org | Role              
+1     | John Doe    | HQ        | N/A        | President         
+2     | Jane Smith  | PROD      | HQ         | Department Manager
+3     | Bob Wilson  | MFG       | PROD       | Section Manager   
+3     | Mary Brown  | QC        | PROD       | QC Manager        
+            </div>
+
+            <div class="alert alert-success">
+                <strong>Pro Tip:</strong> Use the "Export Empty Template" button to download a properly formatted Excel template!
+            </div>
+        </section>
+
+        <section id="basic-usage" class="section">
+            <h2>🎯 Basic Usage</h2>
+            
+            <h3>Step-by-Step Workflow</h3>
+            <ol class="step-list">
+                <li>
+                    <strong>Load Your Data</strong><br>
+                    Click the file drop zone or drag & drop your Excel file. The file will be automatically processed and validated.
+                </li>
+                <li>
+                    <strong>Configure Display Settings</strong><br>
+                    Choose your base organization, level limit, font size, and box size. Toggle manager visibility if needed.
+                </li>
+                <li>
+                    <strong>Generate the Chart</strong><br>
+                    Click "Generate Chart" to create your organization chart. The layout will be automatically calculated.
+                </li>
+                <li>
+                    <strong>Review and Adjust</strong><br>
+                    Use the data table editor to make changes, or adjust display settings and regenerate.
+                </li>
+                <li>
+                    <strong>Export Your Chart</strong><br>
+                    Choose from SVG, PNG, HTML, or Excel export formats to save or share your chart.
+                </li>
+            </ol>
+
+            <h3>Control Panel Overview</h3>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>📋 Data Controls</h4>
+                    <p><span class="button-demo">Load Sample Data</span> Try with demo data</p>
+                    <p><span class="button-demo">Show/Edit Data Table</span> Edit your data</p>
+                    <p><span class="button-demo">Validate Data</span> Check for errors</p>
+                </div>
+                <div class="feature-card">
+                    <h4>⚙️ Display Options</h4>
+                    <p><strong>Base Organization:</strong> Filter by organization</p>
+                    <p><strong>Level Limit:</strong> Control hierarchy depth</p>
+                    <p><strong>Font & Box Size:</strong> Adjust appearance</p>
+                    <p><strong>Hide Managers:</strong> Show organizations only</p>
+                </div>
+                <div class="feature-card">
+                    <h4>📤 Export Options</h4>
+                    <p><span class="button-demo">Export SVG</span> Vector graphics</p>
+                    <p><span class="button-demo">Export PNG</span> Image format</p>
+                    <p><span class="button-demo">Export HTML</span> Standalone web page</p>
+                    <p><span class="button-demo">Print</span> Direct printing</p>
+                </div>
+                <div class="feature-card">
+                    <h4>🔍 View Controls</h4>
+                    <p><span class="button-demo">Full Screen</span> Enhanced viewing</p>
+                    <p><span class="button-demo">Generate Chart</span> Create visualization</p>
+                    <p><strong>Keyboard Shortcuts:</strong></p>
+                    <p><span class="keyboard-shortcut">Ctrl+G</span> Generate</p>
+                    <p><span class="keyboard-shortcut">Ctrl+S</span> Export SVG</p>
+                    <p><span class="keyboard-shortcut">Ctrl+P</span> Print</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="advanced-features" class="section">
+            <h2>🔧 Advanced Features</h2>
+
+            <h3>Data Table Editor</h3>
+            <p>The built-in data editor provides powerful functionality for managing your organization data:</p>
+            
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>✏️ Inline Editing</h4>
+                    <ul>
+                        <li>Click any cell to edit content</li>
+                        <li>Real-time validation feedback</li>
+                        <li>Color picker for custom styling</li>
+                        <li>Dropdown menus for standard fields</li>
+                    </ul>
+                </div>
+                <div class="feature-card">
+                    <h4>🎯 Drag & Drop Reordering</h4>
+                    <ul>
+                        <li>Drag rows by the handle (⋮) icon</li>
+                        <li>Visual feedback during dragging</li>
+                        <li>Automatic data array reordering</li>
+                        <li>Preserved after applying changes</li>
+                    </ul>
+                </div>
+                <div class="feature-card">
+                    <h4>➕ Row Management</h4>
+                    <ul>
+                        <li>Add new rows with proper defaults</li>
+                        <li>Delete rows with confirmation</li>
+                        <li>Bulk operations support</li>
+                        <li>Undo/redo functionality</li>
+                    </ul>
+                </div>
+                <div class="feature-card">
+                    <h4>✅ Data Validation</h4>
+                    <ul>
+                        <li>Required field checking</li>
+                        <li>Circular reference detection</li>
+                        <li>Color format validation</li>
+                        <li>Hierarchy structure verification</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h3>Fullscreen Display</h3>
+            <p>The fullscreen mode provides an enhanced viewing experience:</p>
+            <ul>
+                <li><strong>Immersive View:</strong> Full browser window utilization</li>
+                <li><strong>Enhanced Navigation:</strong> Scroll and zoom for large charts</li>
+                <li><strong>Legend Preservation:</strong> All legends and color information included</li>
+                <li><strong>Easy Exit:</strong> Press <span class="keyboard-shortcut">Esc</span> or click the exit button</li>
+            </ul>
+
+            <h3>Data Validation System</h3>
+            <p>Comprehensive validation ensures data integrity:</p>
+            
+            <div class="alert alert-info">
+                Click "Validate Data" to run a complete check of your organization data. The system will analyze hierarchy structure, detect errors, and provide detailed statistics.
+            </div>
+
+            <h4>Validation Checks Include:</h4>
+            <ul>
+                <li><strong>Required Fields:</strong> Name, Call Name, and Role must be present</li>
+                <li><strong>Hierarchy Validation:</strong> Parent-child relationships must be valid</li>
+                <li><strong>Circular References:</strong> Organizations cannot reference themselves</li>
+                <li><strong>Color Format:</strong> Custom colors must be valid HEX, color names, or palette references</li>
+                <li><strong>Level Consistency:</strong> Hierarchy levels must be logical and consistent</li>
+            </ul>
+        </section>
+
+        <section id="customization" class="section">
+            <h2>🎨 Customization Options</h2>
+
+            <h3>Color System</h3>
+            <p>The tool provides a comprehensive color system for visual customization:</p>
+
+            <h4>15-Color Palette</h4>
+            <div class="color-palette">
+                <div class="color-item">
+                    <div class="color-sample" style="background: #e3f2fd;"></div>
+                    <strong>blue-light</strong><br>
+                    <code>#e3f2fd</code>
+                </div>
+                <div class="color-item">
+                    <div class="color-sample" style="background: #2196f3;"></div>
+                    <strong>blue-medium</strong><br>
+                    <code>#2196f3</code>
+                </div>
+                <div class="color-item">
+                    <div class="color-sample" style="background: #1565c0;"></div>
+                    <strong>blue-dark</strong><br>
+                    <code>#1565c0</code>
+                </div>
+                <div class="color-item">
+                    <div class="color-sample" style="background: #f1f8e9;"></div>
+                    <strong>green-light</strong><br>
+                    <code>#f1f8e9</code>
+                </div>
+                <div class="color-item">
+                    <div class="color-sample" style="background: #4caf50;"></div>
+                    <strong>green-medium</strong><br>
+                    <code>#4caf50</code>
+                </div>
+                <div class="color-item">
+                    <div class="color-sample" style="background: #2e7d32;"></div>
+                    <strong>green-dark</strong><br>
+                    <code>#2e7d32</code>
+                </div>
+                <div class="color-item">
+                    <div class="color-sample" style="background: #f3e5f5;"></div>
+                    <strong>purple-light</strong><br>
+                    <code>#f3e5f5</code>
+                </div>
+                <div class="color-item">
+                    <div class="color-sample" style="background: #9c27b0;"></div>
+                    <strong>purple-medium</strong><br>
+                    <code>#9c27b0</code>
+                </div>
+                <div class="color-item">
+                    <div class="color-sample" style="background: #6a1b9a;"></div>
+                    <strong>purple-dark</strong><br>
+                    <code>#6a1b9a</code>
+                </div>
+                <div class="color-item">
+                    <div class="color-sample" style="background: #fff3e0;"></div>
+                    <strong>orange-light</strong><br>
+                    <code>#fff3e0</code>
+                </div>
+                <div class="color-item">
+                    <div class="color-sample" style="background: #ff9800;"></div>
+                    <strong>orange-medium</strong><br>
+                    <code>#ff9800</code>
+                </div>
+                <div class="color-item">
+                    <div class="color-sample" style="background: #e65100;"></div>
+                    <strong>orange-dark</strong><br>
+                    <code>#e65100</code>
+                </div>
+                <div class="color-item">
+                    <div class="color-sample" style="background: #ffebee;"></div>
+                    <strong>red-light</strong><br>
+                    <code>#ffebee</code>
+                </div>
+                <div class="color-item">
+                    <div class="color-sample" style="background: #f44336;"></div>
+                    <strong>red-medium</strong><br>
+                    <code>#f44336</code>
+                </div>
+                <div class="color-item">
+                    <div class="color-sample" style="background: #c62828;"></div>
+                    <strong>red-dark</strong><br>
+                    <code>#c62828</code>
+                </div>
+            </div>
+
+            <h4>Department Presets</h4>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>🏭 Direct Department</h4>
+                    <p>Blue theme for production departments</p>
+                    <div class="color-sample" style="background: #2196f3; width: 30px; height: 30px; margin: 10px 0;"></div>
+                </div>
+                <div class="feature-card">
+                    <h4>🔧 Indirect Department</h4>
+                    <p>Green theme for support functions</p>
+                    <div class="color-sample" style="background: #4caf50; width: 30px; height: 30px; margin: 10px 0;"></div>
+                </div>
+                <div class="feature-card">
+                    <h4>👔 Management</h4>
+                    <p>Purple theme for executive roles</p>
+                    <div class="color-sample" style="background: #9c27b0; width: 30px; height: 30px; margin: 10px 0;"></div>
+                </div>
+                <div class="feature-card">
+                    <h4>💼 Sales Department</h4>
+                    <p>Orange theme for sales organizations</p>
+                    <div class="color-sample" style="background: #ff9800; width: 30px; height: 30px; margin: 10px 0;"></div>
+                </div>
+            </div>
+
+            <h3>Layout Customization</h3>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>📏 Size Options</h4>
+                    <ul>
+                        <li><strong>Small:</strong> 70×80px boxes, compact spacing</li>
+                        <li><strong>Medium:</strong> 85×100px boxes, standard spacing</li>
+                        <li><strong>Large:</strong> 100×120px boxes, generous spacing</li>
+                    </ul>
+                </div>
+                <div class="feature-card">
+                    <h4>🔤 Font Sizes</h4>
+                    <ul>
+                        <li><strong>Small:</strong> Compact text, more data visible</li>
+                        <li><strong>Medium:</strong> Balanced readability</li>
+                        <li><strong>Large:</strong> Enhanced readability, larger charts</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <section id="export-options" class="section">
+            <h2>📤 Export Options</h2>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>🖼️ SVG Export</h4>
+                    <ul>
+                        <li>Vector format for infinite scalability</li>
+                        <li>Perfect for print and web use</li>
+                        <li>Preserves all colors and styling</li>
+                        <li>Small file size</li>
+                    </ul>
+                    <p><strong>Best for:</strong> Professional documents, printing, web publishing</p>
+                </div>
+
+                <div class="feature-card">
+                    <h4>🖼️ PNG Export</h4>
+                    <ul>
+                        <li>High-resolution raster image (2x scaling)</li>
+                        <li>Compatible with all applications</li>
+                        <li>Requires html2canvas library</li>
+                        <li>Larger file size</li>
+                    </ul>
+                    <p><strong>Best for:</strong> Presentations, documents, social media</p>
+                </div>
+
+                <div class="feature-card">
+                    <h4>🌐 HTML Export</h4>
+                    <ul>
+                        <li>Standalone web page with embedded CSS</li>
+                        <li>Includes all legends and metadata</li>
+                        <li>Responsive design for mobile</li>
+                        <li>No external dependencies</li>
+                    </ul>
+                    <p><strong>Best for:</strong> Web sharing, archiving, collaboration</p>
+                </div>
+
+                <div class="feature-card">
+                    <h4>📊 Excel Export</h4>
+                    <ul>
+                        <li><strong>Empty Template:</strong> Formatted Excel template</li>
+                        <li><strong>Current Data:</strong> Your data with modifications</li>
+                        <li>Preserves custom colors</li>
+                        <li>Ready for further editing</li>
+                    </ul>
+                    <p><strong>Best for:</strong> Data backup, sharing with others, creating templates</p>
+                </div>
+            </div>
+
+            <h3>Export Tips</h3>
+            <div class="alert alert-info">
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li><strong>SVG:</strong> Choose this for the best quality and smallest file size</li>
+                    <li><strong>PNG:</strong> Use when you need a raster image format</li>
+                    <li><strong>HTML:</strong> Perfect for sharing charts that others can view in any browser</li>
+                    <li><strong>Excel:</strong> Great for backing up data or creating templates for others</li>
+                </ul>
+            </div>
+
+            <h3>Print Functionality</h3>
+            <p>The print feature opens a new window with a print-optimized version of your chart:</p>
+            <ul>
+                <li>Automatic page sizing and orientation</li>
+                <li>Optimized colors for printing</li>
+                <li>Includes chart title and generation date</li>
+                <li>Removes unnecessary UI elements</li>
+            </ul>
+        </section>
+
+        <section id="troubleshooting" class="section">
+            <h2>🐛 Troubleshooting</h2>
+
+            <h3>Common Issues & Solutions</h3>
+
+            <div class="alert alert-warning">
+                <h4>⚠️ "PNG export requires html2canvas library"</h4>
+                <p><strong>Solution:</strong> The PNG export feature requires the html2canvas library. Use SVG export instead, or check that the library loaded correctly in your browser's developer console.</p>
+            </div>
+
+            <div class="alert alert-warning">
+                <h4>⚠️ "File format not supported"</h4>
+                <p><strong>Solutions:</strong></p>
+                <ul style="margin-top: 10px;">
+                    <li>Ensure your file has a .xlsx or .xls extension</li>
+                    <li>Verify the file is a valid Excel format</li>
+                    <li>Try re-saving the file in Excel with "Save As" → Excel Workbook</li>
+                    <li>Check that the file isn't corrupted</li>
+                </ul>
+            </div>
+
+            <div class="alert alert-warning">
+                <h4>⚠️ "No data loaded"</h4>
+                <p><strong>Solutions:</strong></p>
+                <ul style="margin-top: 10px;">
+                    <li>Verify that required columns (Name, Call Name, Role) contain data</li>
+                    <li>Check that your Excel file follows the correct column structure</li>
+                    <li>Use the "Validate Data" feature to identify specific issues</li>
+                    <li>Try loading the sample data first to test the tool</li>
+                </ul>
+            </div>
+
+            <h3>Data Validation Errors</h3>
+
+            <h4>Required Field Errors</h4>
+            <ul>
+                <li><strong>"Name is required":</strong> Fill in the Name column for all rows</li>
+                <li><strong>"Call Name is required":</strong> Each organization needs a unique Call Name</li>
+                <li><strong>"Role is required":</strong> Specify the role/position for each person</li>
+            </ul>
+
+            <h4>Hierarchy Errors</h4>
+            <ul>
+                <li><strong>"Parent organization not found":</strong> Ensure Parent Org values match existing Call Names exactly</li>
+                <li><strong>"Circular reference detected":</strong> Check that organizations don't reference themselves or create loops</li>
+                <li><strong>"Level out of range":</strong> Use hierarchy levels between 1-10</li>
+            </ul>
+
+            <h4>Color Format Errors</h4>
+            <ul>
+                <li><strong>"Invalid color format":</strong> Use HEX codes (#2196f3), color names (blue), or palette colors (blue-medium)</li>
+                <li><strong>Colors not appearing:</strong> Clear browser cache or try a different color format</li>
+            </ul>
+
+            <h3>Performance Tips</h3>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>🚀 Large Datasets</h4>
+                    <ul>
+                        <li>Use level limits to reduce complexity</li>
+                        <li>Filter by base organization</li>
+                        <li>Use smaller box sizes for better fit</li>
+                        <li>Consider splitting into multiple charts</li>
+                    </ul>
+                </div>
+                <div class="feature-card">
+                    <h4>🎯 Browser Performance</h4>
+                    <ul>
+                        <li>Close unnecessary browser tabs</li>
+                        <li>Use Chrome for best performance</li>
+                        <li>Clear browser cache if issues occur</li>
+                        <li>Disable browser extensions if needed</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h3>Debug Mode</h3>
+            <p>Add <code>?debug=true</code> to the URL to enable detailed console logging:</p>
+            <div class="code-block">
+http://localhost:8000/src/index.html?debug=true
+            </div>
+            <p>This will help identify issues during data processing and chart generation.</p>
+
+            <div class="alert alert-success">
+                <strong>Still Having Issues?</strong> Check the browser's developer console (F12) for detailed error messages, and ensure you're using a supported browser version.
+            </div>
+        </section>
+
+        <footer style="text-align: center; padding: 40px 20px; color: #718096; border-top: 1px solid #e2e8f0; margin-top: 40px;">
+            <p><strong>Organization Chart Tool</strong> - Version 1.1.0</p>
+            <p>Built with modern web technologies for creating professional organization charts</p>
+            <p style="margin-top: 20px;">
+                <a href="#getting-started" style="color: #4299e1; text-decoration: none; margin: 0 10px;">Back to Top</a> |
+                <a href="src/index.html" style="color: #4299e1; text-decoration: none; margin: 0 10px;">Open Application</a>
+            </p>
+        </footer>
+    </div>
+
+    <script>
+        // Smooth scrolling for navigation links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Highlight current section in navigation
+        window.addEventListener('scroll', () => {
+            const sections = document.querySelectorAll('.section');
+            const navLinks = document.querySelectorAll('.nav-menu a');
+            
+            let currentSection = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop - 100;
+                const sectionBottom = sectionTop + section.offsetHeight;
+                if (window.scrollY >= sectionTop && window.scrollY < sectionBottom) {
+                    currentSection = section.id;
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.style.background = '';
+                link.style.color = '';
+                if (link.getAttribute('href') === `#${currentSection}`) {
+                    link.style.background = '#4299e1';
+                    link.style.color = 'white';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

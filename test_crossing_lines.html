@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crossing Lines Fix Test</title>
+    <link rel="stylesheet" href="src/styles/main.css">
+    <link rel="stylesheet" href="src/styles/components.css">
+    <style>
+        .test-info {
+            margin: 20px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 5px;
+        }
+        .test-controls {
+            margin: 20px;
+        }
+        .test-controls button {
+            margin: 5px;
+            padding: 8px 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .test-controls button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <h1>Organization Chart - Crossing Lines Fix Test</h1>
+        <div class="test-info">
+            <h3>Test Scenario: CMG and CBT at Level 3 with Multiple Children</h3>
+            <p>This test demonstrates the fix for crossing connection lines when organizations at the same level have multiple children.</p>
+            <p>CMG and CBT are both at level 3, and their children should be grouped together to avoid crossing lines.</p>
+        </div>
+        <div class="test-controls">
+            <button id="showBrokenLayout">Show Broken Layout (Before Fix)</button>
+            <button id="showFixedLayout">Show Fixed Layout (After Fix)</button>
+            <button id="toggleDebugMode">Toggle Debug Mode</button>
+        </div>
+        <div id="chart-container" class="chart-container">
+            <div id="orgChart" class="org-chart"></div>
+        </div>
+    </div>
+
+    <!-- Include all necessary JavaScript files -->
+    <script src="src/js/config.js"></script>
+    <script src="src/js/data-processor.js"></script>
+    <script src="src/js/layout-calculator.js"></script>
+    <script src="src/js/chart-renderer.js"></script>
+
+    <script>
+        // Test data that demonstrates the crossing lines issue
+        const testData = [
+            // Level 1
+            { org: 'CEO', parent: '', manager: 'CEO Name', role: 'CEO', level: 1 },
+            
+            // Level 2
+            { org: 'COO', parent: 'CEO', manager: 'COO Name', role: 'COO', level: 2 },
+            
+            // Level 3 - These are siblings that have multiple children
+            { org: 'CMG', parent: 'COO', manager: 'CMG Manager', role: 'CMG Head', level: 3 },
+            { org: 'CBT', parent: 'COO', manager: 'CBT Manager', role: 'CBT Head', level: 3 },
+            
+            // Level 4 - Children of CMG
+            { org: 'CMG-Team1', parent: 'CMG', manager: 'Team 1 Lead', role: 'Team Lead', level: 4 },
+            { org: 'CMG-Team2', parent: 'CMG', manager: 'Team 2 Lead', role: 'Team Lead', level: 4 },
+            { org: 'CMG-Team3', parent: 'CMG', manager: 'Team 3 Lead', role: 'Team Lead', level: 4 },
+            
+            // Level 4 - Children of CBT
+            { org: 'CBT-Team1', parent: 'CBT', manager: 'Team A Lead', role: 'Team Lead', level: 4 },
+            { org: 'CBT-Team2', parent: 'CBT', manager: 'Team B Lead', role: 'Team Lead', level: 4 },
+            { org: 'CBT-Team3', parent: 'CBT', manager: 'Team C Lead', role: 'Team Lead', level: 4 },
+            
+            // Level 5 - Some grandchildren to make the issue more apparent
+            { org: 'CMG-T1-Sub1', parent: 'CMG-Team1', manager: 'Sub Team 1', role: 'Sub Team', level: 5 },
+            { org: 'CMG-T1-Sub2', parent: 'CMG-Team1', manager: 'Sub Team 2', role: 'Sub Team', level: 5 },
+            { org: 'CBT-T1-Sub1', parent: 'CBT-Team1', manager: 'Sub Team A', role: 'Sub Team', level: 5 },
+            { org: 'CBT-T1-Sub2', parent: 'CBT-Team1', manager: 'Sub Team B', role: 'Sub Team', level: 5 }
+        ];
+
+        // Initialize components
+        const chartContainer = document.getElementById('orgChart');
+        const renderer = new ChartRenderer(chartContainer);
+        const dataProcessor = new DataProcessor();
+        const layoutCalculator = new LayoutCalculator(null);
+
+        // Process test data
+        const processedData = dataProcessor.processData(testData);
+        layoutCalculator.processedData = processedData;
+
+        let debugMode = false;
+
+        function renderChart(useBrokenLayout = false) {
+            const targetOrgs = testData.map(item => item.org);
+            
+            console.log('=== Rendering chart ===');
+            console.log('Using layout:', useBrokenLayout ? 'BROKEN (before fix)' : 'FIXED (after fix)');
+            
+            // If using broken layout, temporarily override the positioning method
+            if (useBrokenLayout) {
+                // Save original method
+                const originalMethod = layoutCalculator.positionBottomLevelByTreeStructure;
+                // Replace with old method
+                layoutCalculator.positionBottomLevelByTreeStructure = layoutCalculator.positionBottomLevelByLevelAndParent;
+                
+                // Calculate layout
+                const layout = layoutCalculator.calculateLayout(targetOrgs, null, {});
+                
+                // Restore original method
+                layoutCalculator.positionBottomLevelByTreeStructure = originalMethod;
+                
+                // Render
+                renderer.render(layout, processedData, {});
+            } else {
+                // Use the fixed layout
+                const layout = layoutCalculator.calculateLayout(targetOrgs, null, {});
+                renderer.render(layout, processedData, {});
+            }
+            
+            // Analyze connections
+            setTimeout(() => {
+                analyzeConnections();
+            }, 200);
+        }
+
+        function analyzeConnections() {
+            const connections = chartContainer.querySelectorAll('.connection-line');
+            console.log(`Total connections: ${connections.length}`);
+            
+            // Check for potential crossing lines
+            const horizontalLines = Array.from(chartContainer.querySelectorAll('.connection-line.horizontal'));
+            let crossings = 0;
+            
+            for (let i = 0; i < horizontalLines.length; i++) {
+                for (let j = i + 1; j < horizontalLines.length; j++) {
+                    const line1 = horizontalLines[i];
+                    const line2 = horizontalLines[j];
+                    
+                    const y1 = parseInt(line1.style.top);
+                    const y2 = parseInt(line2.style.top);
+                    const x1Start = parseInt(line1.style.left);
+                    const x1End = x1Start + parseInt(line1.style.width);
+                    const x2Start = parseInt(line2.style.left);
+                    const x2End = x2Start + parseInt(line2.style.width);
+                    
+                    // Check if lines are at same Y level and overlap in X
+                    if (Math.abs(y1 - y2) < 5) { // Same Y level (with small tolerance)
+                        if ((x1Start < x2End && x1End > x2Start) || (x2Start < x1End && x2End > x1Start)) {
+                            crossings++;
+                            console.warn(`Potential crossing between lines at Y=${y1}: Line1(${x1Start}-${x1End}) and Line2(${x2Start}-${x2End})`);
+                        }
+                    }
+                }
+            }
+            
+            if (crossings === 0) {
+                console.log('✅ No crossing lines detected!');
+            } else {
+                console.warn(`⚠️ ${crossings} potential line crossings detected!`);
+            }
+        }
+
+        // Event listeners
+        document.getElementById('showBrokenLayout').addEventListener('click', () => {
+            renderChart(true);
+        });
+
+        document.getElementById('showFixedLayout').addEventListener('click', () => {
+            renderChart(false);
+        });
+
+        document.getElementById('toggleDebugMode').addEventListener('click', () => {
+            debugMode = !debugMode;
+            CONFIG.DEBUG.LOG_LAYOUT_CALCULATION = debugMode;
+            console.log('Debug mode:', debugMode ? 'ON' : 'OFF');
+            renderChart(false);
+        });
+
+        // Initial render with fixed layout
+        renderChart(false);
+    </script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 /**
- * 組織図作成ツール - UI制御モジュール（データ反映修正版）
- * ユーザーインターフェースの制御とイベント管理
+ * Organization Chart Tool - UI Control Module (Data Reflection Fixed Version)
+ * User interface control and event management
  */
 
 class UIController {
@@ -10,11 +10,16 @@ class UIController {
         this.exportUtils = null;
         this.layoutCalculator = null;
         this.dataTableManager = null;
+        this.isFullscreen = false;
+        this.originalStyles = {};
         
         this.initializeElements();
         this.setupEventListeners();
         this.setupKeyboardShortcuts();
         this.initializeDataTableManager();
+        
+        // 初期ボタン状態を設定
+        this.updateButtonStates('initial');
     }
 
     /**
@@ -28,12 +33,16 @@ class UIController {
             levelSelect: document.getElementById('levelSelect'),
             fontSizeSelect: document.getElementById('fontSizeSelect'),
             boxSizeSelect: document.getElementById('boxSizeSelect'),
+            hideManagersCheckbox: document.getElementById('hideManagersCheckbox'),
             generateBtn: document.getElementById('generateBtn'),
             exportSvgBtn: document.getElementById('exportSvgBtn'),
             exportPngBtn: document.getElementById('exportPngBtn'),
             printBtn: document.getElementById('printBtn'),
             showTableBtn: document.getElementById('showTableBtn'),
             validateBtn: document.getElementById('validateBtn'),
+            exportCurrentDataBtn: document.getElementById('exportCurrentDataBtn'),
+            exportHTMLBtn: document.getElementById('exportHTMLBtn'),
+            fullscreenBtn: document.getElementById('fullscreenBtn'),
             stats: document.getElementById('stats'),
             statsContent: document.getElementById('statsContent'),
             errors: document.getElementById('errors'),
@@ -80,6 +89,7 @@ class UIController {
         this.elements.fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
         this.elements.fontSizeSelect.addEventListener('change', () => this.updateChartStyle());
         this.elements.boxSizeSelect.addEventListener('change', () => this.updateChartStyle());
+        this.elements.hideManagersCheckbox.addEventListener('change', () => this.updateChartStyle());
     }
 
     /**
@@ -160,13 +170,13 @@ class UIController {
      */
     loadCorrectedSampleData() {
         try {
-            this.showLoading('サンプルデータを読み込み中...');
+            this.showLoading('Loading sample data...');
             this.elements.demoMode.style.display = 'block';
-            this.elements.demoMode.textContent = 'デモモード: 修正済みサンプルデータで動作確認中';
+            this.elements.demoMode.textContent = t ? t('demoMode') : 'Demo Mode: Running with sample data';
             
             this.dataProcessor.loadCorrectedSampleData();
             this.updateUI();
-            this.enableControls();
+            this.updateButtonStates('dataLoaded'); // データ読み込み後の状態に更新
             this.showStats();
             this.hideError();
             this.hideLoading();
@@ -178,7 +188,7 @@ class UIController {
             ConfigUtils.debugLog('修正済みサンプルデータロード完了', 'ui');
         } catch (error) {
             this.hideLoading();
-            this.showError('サンプルデータの読み込みに失敗しました: ' + error.message);
+            this.showError('Failed to load sample data: ' + error.message);
             ConfigUtils.debugLog(`サンプルデータロードエラー: ${error.message}`, 'error');
         }
     }
@@ -229,22 +239,22 @@ class UIController {
     async handleFile(file) {
         try {
             if (!this.validateFileType(file)) {
-                throw new Error('対応していないファイル形式です。Excelファイル（.xlsx, .xls）を選択してください。');
+                throw new Error('Unsupported file format. Please select an Excel file (.xlsx, .xls).');
             }
             
-            this.showLoading(`ファイルを読み込み中: ${file.name}`);
+            this.showLoading(`Loading file: ${file.name}`);
             this.hideError();
             
             await this.dataProcessor.processExcelFile(file);
             this.updateUI();
-            this.enableControls();
+            this.updateButtonStates('dataLoaded'); // データ読み込み後の状態に更新
             this.showStats();
             this.hideLoading();
             
             this.elements.demoMode.style.display = 'none';
             
             ConfigUtils.debugLog(`ファイル処理完了: ${file.name}`, 'ui');
-            this.showSuccessMessage(`ファイル「${file.name}」の読み込みが完了しました。`);
+            this.showSuccessMessage(t ? t('fileLoadComplete', { filename: file.name }) : `File "${file.name}" loaded successfully.`);
             
         } catch (error) {
             this.hideLoading();
@@ -328,12 +338,12 @@ class UIController {
      */
     generateChart() {
         if (!this.dataProcessor.isDataProcessed()) {
-            this.showError('データが読み込まれていません。まずExcelファイルを選択してください。');
+            this.showError(t ? t('noDataLoaded') : 'No data loaded. Please select an Excel file first.');
             return;
         }
 
         try {
-            this.showLoading('組織図を生成中...');
+            this.showLoading('Generating chart...');
             
             ConfigUtils.debugLog('=== 組織図生成開始 ===', 'ui');
             
@@ -350,8 +360,9 @@ class UIController {
             const maxLevel = parseInt(this.elements.levelSelect.value);
             const fontSize = this.elements.fontSizeSelect.value;
             const boxSize = this.elements.boxSizeSelect.value;
+            const hideManagers = this.elements.hideManagersCheckbox.checked;
             
-            ConfigUtils.debugLog(`生成設定: baseOrg="${baseOrg}", maxLevel=${maxLevel}, fontSize=${fontSize}, boxSize=${boxSize}`, 'ui');
+            ConfigUtils.debugLog(`生成設定: baseOrg="${baseOrg}", maxLevel=${maxLevel}, fontSize=${fontSize}, boxSize=${boxSize}, hideManagers=${hideManagers}`, 'ui');
             
             if (!this.chartRenderer) {
                 ConfigUtils.debugLog('ChartRendererを再初期化します', 'ui');
@@ -365,6 +376,7 @@ class UIController {
                 throw new Error('ChartRendererのupdateStylesメソッドが定義されていません');
             }
             
+            // 必ず現在のフォントサイズとボックスサイズでスタイルを更新
             this.chartRenderer.updateStyles(fontSize, boxSize);
             
             if (!this.layoutCalculator) {
@@ -401,21 +413,24 @@ class UIController {
             }
             
             ConfigUtils.debugLog('レイアウト計算を開始', 'ui');
-            const layout = this.layoutCalculator.calculateLayout(targetOrgs, baseOrg);
+            const layout = this.layoutCalculator.calculateLayout(targetOrgs, baseOrg, { hideManagers });
             
             ConfigUtils.debugLog('組織図描画を開始', 'ui');
-            this.chartRenderer.render(layout, currentProcessedData);
+            this.chartRenderer.render(layout, currentProcessedData, { hideManagers });
             
             this.hideLoading();
             this.hideError();
             
-            this.showSuccessMessage(`組織図を生成しました（${targetOrgs.length}組織）`);
+            // 組織図生成完了後の状態に更新（全機能利用可能）
+            this.updateButtonStates('chartGenerated');
+            
+            this.showSuccessMessage(t ? t('chartGenerated', { count: targetOrgs.length }) : `Chart generated (${targetOrgs.length} organizations)`);
             
             ConfigUtils.debugLog(`組織図生成完了: ${targetOrgs.length}組織`, 'ui');
             
         } catch (error) {
             this.hideLoading();
-            this.showError('組織図の生成に失敗しました: ' + error.message);
+            this.showError('Failed to generate chart: ' + error.message);
             ConfigUtils.debugLog(`組織図生成エラー: ${error.message}`, 'error');
             ConfigUtils.debugLog(`エラースタック: ${error.stack}`, 'error');
             
@@ -440,6 +455,15 @@ class UIController {
         const boxSize = this.elements.boxSizeSelect.value;
         
         this.chartRenderer.updateStyles(fontSize, boxSize);
+        
+        // If the chart is already generated, regenerate it with the new settings
+        if (this.elements.orgChart.children.length > 0) {
+            // Add a small delay to ensure CSS variables are applied before regenerating
+            requestAnimationFrame(() => {
+                this.generateChart();
+            });
+        }
+        
         ConfigUtils.debugLog(`スタイル更新: フォント=${fontSize}, ボックス=${boxSize}`, 'ui');
     }
 
@@ -448,7 +472,7 @@ class UIController {
      */
     exportPNG() {
         if (!this.dataProcessor.isDataProcessed()) {
-            this.showError('組織図が生成されていません');
+            this.showError('Chart not generated yet');
             return;
         }
         
@@ -460,7 +484,7 @@ class UIController {
      */
     exportSVG() {
         if (!this.dataProcessor.isDataProcessed()) {
-            this.showError('組織図が生成されていません');
+            this.showError('Chart not generated yet');
             return;
         }
         
@@ -472,7 +496,7 @@ class UIController {
      */
     printChart() {
         if (!this.dataProcessor.isDataProcessed()) {
-            this.showError('組織図が生成されていません');
+            this.showError('Chart not generated yet');
             return;
         }
         
@@ -484,7 +508,7 @@ class UIController {
      */
     showDataTable() {
         if (!this.dataProcessor.isDataProcessed()) {
-            this.showError('データが読み込まれていません');
+            this.showError('No data loaded');
             return;
         }
         
@@ -492,7 +516,7 @@ class UIController {
             this.dataTableManager.showTable();
             ConfigUtils.debugLog('データテーブルを表示', 'ui');
         } else {
-            this.showError('データテーブル機能が初期化されていません');
+            this.showError('Data table function not initialized');
         }
     }
 
@@ -500,8 +524,10 @@ class UIController {
      * データ検証を実行
      */
     validateData() {
+        ConfigUtils.debugLog('=== データ検証開始 ===', 'ui');
+        
         if (!this.dataProcessor.isDataProcessed()) {
-            this.showError('データが読み込まれていません');
+            this.showError('No data loaded');
             return;
         }
         
@@ -511,13 +537,18 @@ class UIController {
             const validationResult = this.dataProcessor.validateHierarchyStructure();
             
             this.hideLoading();
+            ConfigUtils.debugLog('検証結果ポップアップを表示', 'ui');
             this.showValidationResult(validationResult);
+            
+            // 統計情報を更新（検証結果を反映）
+            this.showStats();
+            ConfigUtils.debugLog('統計情報を更新', 'ui');
             
             ConfigUtils.debugLog('データ検証完了', 'ui');
             
         } catch (error) {
             this.hideLoading();
-            this.showError('データ検証中にエラーが発生しました: ' + error.message);
+            this.showError('Error during data validation: ' + error.message);
             ConfigUtils.debugLog(`データ検証エラー: ${error.message}`, 'error');
         }
     }
@@ -526,9 +557,20 @@ class UIController {
      * 検証結果を表示
      */
     showValidationResult(validationResult) {
+        ConfigUtils.debugLog('=== 検証結果ポップアップ表示開始 ===', 'ui');
         const { isValid, errors, warnings, statistics } = validationResult;
         
+        // 既存の検証結果ポップアップを削除
+        const existingPopups = document.querySelectorAll('.validation-result-popup');
+        ConfigUtils.debugLog(`既存ポップアップ削除: ${existingPopups.length}個`, 'ui');
+        existingPopups.forEach(popup => popup.remove());
+        
+        // データ処理エラーも含める
+        const dataErrors = this.dataProcessor.getErrors();
+        const totalErrors = dataErrors.length + errors.length;
+        
         const resultDiv = document.createElement('div');
+        resultDiv.className = 'validation-result-popup';
         resultDiv.style.cssText = `
             position: fixed;
             top: 50%;
@@ -544,9 +586,10 @@ class UIController {
             overflow-y: auto;
         `;
         
-        let statusColor = isValid ? '#48bb78' : '#e53e3e';
-        let statusIcon = isValid ? '✅' : '❌';
-        let statusText = isValid ? '検証成功' : '検証失敗';
+        const hasAnyErrors = totalErrors > 0;
+        let statusColor = hasAnyErrors ? '#e53e3e' : '#48bb78';
+        let statusIcon = hasAnyErrors ? '❌' : '✅';
+        let statusText = hasAnyErrors ? '検証失敗' : '検証成功';
         
         let content = `
             <div style="text-align: center; margin-bottom: 20px;">
@@ -573,10 +616,24 @@ class UIController {
         
         content += `</ul></div>`;
         
+        // データ処理エラーを表示
+        if (dataErrors.length > 0) {
+            content += `
+                <div style="background: #fed7d7; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <h3 style="margin: 0 0 10px 0; color: #c53030;">❌ データ処理エラー (${dataErrors.length}件)</h3>
+                    <ul style="margin: 0; padding-left: 20px; color: #c53030;">
+            `;
+            dataErrors.forEach(error => {
+                content += `<li>${error}</li>`;
+            });
+            content += `</ul></div>`;
+        }
+        
+        // 検証エラーを表示
         if (errors.length > 0) {
             content += `
                 <div style="background: #fed7d7; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                    <h3 style="margin: 0 0 10px 0; color: #c53030;">❌ エラー (${errors.length}件)</h3>
+                    <h3 style="margin: 0 0 10px 0; color: #c53030;">❌ 階層検証エラー (${errors.length}件)</h3>
                     <ul style="margin: 0; padding-left: 20px; color: #c53030;">
             `;
             errors.forEach(error => {
@@ -597,12 +654,13 @@ class UIController {
             content += `</ul></div>`;
         }
         
-        if (isValid) {
+        if (!hasAnyErrors) {
             content += `
                 <div style="background: #c6f6d5; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                     <p style="margin: 0; color: #22543d;">
                         <strong>✅ 検証完了</strong><br>
                         データに問題は見つかりませんでした。組織図を生成できます。
+                        ${warnings.length > 0 ? `<br><small>※ ${warnings.length}件の警告がありますが、組織図生成には影響ありません。</small>` : ''}
                     </p>
                 </div>
             `;
@@ -610,7 +668,7 @@ class UIController {
         
         content += `
             <div style="text-align: center;">
-                <button onclick="this.parentElement.parentElement.remove()" style="
+                <button onclick="this.closest('.validation-result-popup').remove()" style="
                     background: #4299e1;
                     color: white;
                     border: none;
@@ -623,7 +681,27 @@ class UIController {
         `;
         
         resultDiv.innerHTML = content;
+        
+        // Escキーで閉じる機能を追加
+        const closeHandler = (e) => {
+            if (e.key === 'Escape') {
+                resultDiv.remove();
+                document.removeEventListener('keydown', closeHandler);
+            }
+        };
+        document.addEventListener('keydown', closeHandler);
+        
+        // オーバーレイクリックで閉じる機能を追加
+        resultDiv.addEventListener('click', (e) => {
+            if (e.target === resultDiv) {
+                resultDiv.remove();
+                document.removeEventListener('keydown', closeHandler);
+            }
+        });
+        
+        ConfigUtils.debugLog('検証結果ポップアップをDOMに追加', 'ui');
         document.body.appendChild(resultDiv);
+        ConfigUtils.debugLog('=== 検証結果ポップアップ表示完了 ===', 'ui');
         
         console.log('=== データ検証結果 ===');
         console.log('検証結果:', isValid ? '成功' : '失敗');
@@ -638,18 +716,49 @@ class UIController {
     showStats() {
         const stats = this.dataProcessor.getStatistics();
         
+        // 実際の検証結果を取得
+        const validationResult = this.dataProcessor.validateHierarchyStructure();
+        const dataErrors = this.dataProcessor.getErrors(); // データ処理時のエラー
+        
+        // 全エラー数を計算（データ処理エラー + 検証エラー）
+        const totalErrors = dataErrors.length + validationResult.errors.length;
+        const totalWarnings = validationResult.warnings.length;
+        
         this.elements.statsContent.innerHTML = `
-            総レコード数: ${stats.totalRecords}, 
-            組織数: ${stats.organizations}, 
-            管理者数: ${stats.managers}, 
-            最大階層数: ${stats.maxLevel}
-            ${stats.mappings ? `, Call Name マッピング: ${stats.mappings}件` : ''}
-            ${stats.customColors ? `, カスタム色: ${stats.customColors}組織` : ''}
-            ${stats.errors > 0 ? `, エラー数: <span style="color: #e53e3e;">${stats.errors}</span>` : ''}
+            Total Records: ${stats.totalRecords}, 
+            Organizations: ${stats.organizations}, 
+            Managers: ${stats.managers}, 
+            Max Level: ${stats.maxLevel}
+            ${stats.mappings ? `, Call Name Mappings: ${stats.mappings}` : ''}
+            ${stats.customColors ? `, Custom Colors: ${stats.customColors} orgs` : ''}
+            ${totalErrors > 0 ? `, <span style="color: #e53e3e;" title="Data: ${dataErrors.length}, Validation: ${validationResult.errors.length}">Errors: ${totalErrors}</span>` : ''}
+            ${totalWarnings > 0 ? `, <span style="color: #dd6b20;" title="Validation warnings">Warnings: ${totalWarnings}</span>` : ''}
         `;
         
         this.elements.stats.style.display = 'block';
-        ConfigUtils.debugLog('統計情報を表示', 'ui');
+        ConfigUtils.debugLog(`統計情報を表示 - データエラー: ${dataErrors.length}, 検証エラー: ${validationResult.errors.length}, 警告: ${totalWarnings}`, 'ui');
+        
+        // デバッグ用：エラーの詳細をログ出力
+        if (CONFIG.DEBUG.ENABLED) {
+            if (dataErrors.length > 0) {
+                ConfigUtils.debugLog('データ処理エラー詳細:', 'ui');
+                dataErrors.forEach((error, index) => {
+                    ConfigUtils.debugLog(`  ${index + 1}. ${error}`, 'ui');
+                });
+            }
+            if (validationResult.errors.length > 0) {
+                ConfigUtils.debugLog('検証エラー詳細:', 'ui');
+                validationResult.errors.forEach((error, index) => {
+                    ConfigUtils.debugLog(`  ${index + 1}. ${error}`, 'ui');
+                });
+            }
+            if (validationResult.warnings.length > 0) {
+                ConfigUtils.debugLog('警告詳細:', 'ui');
+                validationResult.warnings.forEach((warning, index) => {
+                    ConfigUtils.debugLog(`  ${index + 1}. ${warning}`, 'ui');
+                });
+            }
+        }
     }
 
     /**
@@ -678,7 +787,7 @@ class UIController {
         `;
         
         successDiv.innerHTML = `
-            <strong>✓ 成功!</strong><br>${message}
+            <strong>✓ ${t ? t('success') : 'Success!'}</strong><br>${message}
             <style>
                 @keyframes slideInRight {
                     from { transform: translateX(100%); opacity: 0; }
@@ -707,9 +816,9 @@ class UIController {
         if (errors.length > 0) {
             errorHTML += `
                 <div style="margin-top: 10px; padding: 10px; background: #fed7d7; border-left: 4px solid #e53e3e; font-size: 14px;">
-                    <strong>データエラー詳細:</strong><br>
+                    <strong>Data Error Details:</strong><br>
                     ${errors.slice(0, 5).map(error => `• ${error}`).join('<br>')}
-                    ${errors.length > 5 ? `<br>... 他${errors.length - 5}件` : ''}
+                    ${errors.length > 5 ? `<br>... and ${errors.length - 5} more` : ''}
                 </div>
             `;
         }
@@ -784,43 +893,95 @@ class UIController {
     }
 
     /**
-     * コントロールを有効化
+     * ボタン状態を段階的に更新（改善版）
+     * @param {string} stage - 'initial', 'dataLoaded', 'chartGenerated'
      */
-    enableControls() {
-        this.elements.generateBtn.disabled = false;
-        this.elements.exportSvgBtn.disabled = false;
-        if (this.elements.exportPngBtn) {
-            this.elements.exportPngBtn.disabled = false;
+    updateButtonStates(stage) {
+        // All buttons that exist
+        const buttons = {
+            generateBtn: this.elements.generateBtn,
+            showTableBtn: this.elements.showTableBtn,
+            validateBtn: this.elements.validateBtn,
+            exportCurrentDataBtn: this.elements.exportCurrentDataBtn,
+            exportSvgBtn: this.elements.exportSvgBtn,
+            exportPngBtn: this.elements.exportPngBtn,
+            exportHTMLBtn: this.elements.exportHTMLBtn,
+            printBtn: this.elements.printBtn,
+            fullscreenBtn: this.elements.fullscreenBtn
+        };
+
+        switch (stage) {
+            case 'initial':
+                // 初期状態: データ操作のみ可能
+                this.setButtonState(buttons.generateBtn, false);
+                this.setButtonState(buttons.showTableBtn, false);
+                this.setButtonState(buttons.validateBtn, false);
+                this.setButtonState(buttons.exportCurrentDataBtn, false);
+                this.setButtonState(buttons.exportSvgBtn, false);
+                this.setButtonState(buttons.exportPngBtn, false);
+                this.setButtonState(buttons.exportHTMLBtn, false);
+                this.setButtonState(buttons.printBtn, false);
+                this.setButtonState(buttons.fullscreenBtn, false);
+                ConfigUtils.debugLog('ボタン状態: 初期状態（データ操作のみ）', 'ui');
+                break;
+
+            case 'dataLoaded':
+                // データ読み込み後: データ編集・検証・組織図生成が可能
+                this.setButtonState(buttons.generateBtn, true);
+                this.setButtonState(buttons.showTableBtn, true);
+                this.setButtonState(buttons.validateBtn, true);
+                this.setButtonState(buttons.exportCurrentDataBtn, true);
+                // エクスポート機能はまだ無効
+                this.setButtonState(buttons.exportSvgBtn, false);
+                this.setButtonState(buttons.exportPngBtn, false);
+                this.setButtonState(buttons.exportHTMLBtn, false);
+                this.setButtonState(buttons.printBtn, false);
+                this.setButtonState(buttons.fullscreenBtn, false);
+                ConfigUtils.debugLog('ボタン状態: データ読み込み後（編集・生成可能）', 'ui');
+                break;
+
+            case 'chartGenerated':
+                // 組織図生成後: 全機能利用可能
+                this.setButtonState(buttons.generateBtn, true);
+                this.setButtonState(buttons.showTableBtn, true);
+                this.setButtonState(buttons.validateBtn, true);
+                this.setButtonState(buttons.exportCurrentDataBtn, true);
+                this.setButtonState(buttons.exportSvgBtn, true);
+                this.setButtonState(buttons.exportPngBtn, true);
+                this.setButtonState(buttons.exportHTMLBtn, true);
+                this.setButtonState(buttons.printBtn, true);
+                this.setButtonState(buttons.fullscreenBtn, true);
+                ConfigUtils.debugLog('ボタン状態: 組織図生成後（全機能利用可能）', 'ui');
+                break;
+
+            default:
+                ConfigUtils.debugLog(`不明なステージ: ${stage}`, 'ui');
         }
-        this.elements.printBtn.disabled = false;
-        if (this.elements.showTableBtn) {
-            this.elements.showTableBtn.disabled = false;
-        }
-        if (this.elements.validateBtn) {
-            this.elements.validateBtn.disabled = false;
-        }
-        
-        ConfigUtils.debugLog('コントロールを有効化', 'ui');
     }
 
     /**
-     * コントロールを無効化
+     * ボタンの有効/無効を安全に設定
+     * @param {HTMLElement} button - ボタン要素
+     * @param {boolean} enabled - 有効化フラグ
+     */
+    setButtonState(button, enabled) {
+        if (button) {
+            button.disabled = !enabled;
+        }
+    }
+
+    /**
+     * コントロールを有効化（レガシー互換用）
+     */
+    enableControls() {
+        this.updateButtonStates('dataLoaded');
+    }
+
+    /**
+     * コントロールを無効化（レガシー互換用）
      */
     disableControls() {
-        this.elements.generateBtn.disabled = true;
-        this.elements.exportSvgBtn.disabled = true;
-        if (this.elements.exportPngBtn) {
-            this.elements.exportPngBtn.disabled = true;
-        }
-        this.elements.printBtn.disabled = true;
-        if (this.elements.showTableBtn) {
-            this.elements.showTableBtn.disabled = true;
-        }
-        if (this.elements.validateBtn) {
-            this.elements.validateBtn.disabled = true;
-        }
-        
-        ConfigUtils.debugLog('コントロールを無効化', 'ui');
+        this.updateButtonStates('initial');
     }
 
     /**
@@ -831,7 +992,8 @@ class UIController {
             baseOrg: this.elements.baseOrgSelect.value,
             maxLevel: parseInt(this.elements.levelSelect.value),
             fontSize: this.elements.fontSizeSelect.value,
-            boxSize: this.elements.boxSizeSelect.value
+            boxSize: this.elements.boxSizeSelect.value,
+            hideManagers: this.elements.hideManagersCheckbox.checked
         };
     }
 
@@ -864,6 +1026,266 @@ class UIController {
     }
 
     /**
+     * フル画面表示を切り替え
+     */
+    toggleFullscreen() {
+        if (!this.dataProcessor.isDataProcessed() || this.elements.orgChart.children.length === 0) {
+            this.showError('No chart generated yet. Please generate a chart first.');
+            return;
+        }
+
+        try {
+            if (!this.isFullscreen) {
+                this.enterFullscreen();
+            } else {
+                this.exitFullscreen();
+            }
+        } catch (error) {
+            this.showError('Error toggling fullscreen: ' + error.message);
+            ConfigUtils.debugLog(`フル画面切り替えエラー: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * フル画面表示に入る
+     */
+    enterFullscreen() {
+        // 元のスタイルを保存
+        this.saveOriginalStyles();
+
+        // フル画面用のオーバーレイを作成
+        const fullscreenOverlay = document.createElement('div');
+        fullscreenOverlay.id = 'fullscreenOverlay';
+        fullscreenOverlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #ffffff;
+            z-index: 9999;
+            overflow: auto;
+            padding: 20px;
+            box-sizing: border-box;
+        `;
+
+        // フル画面用のヘッダーを作成
+        const fullscreenHeader = document.createElement('div');
+        fullscreenHeader.style.cssText = `
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e2e8f0;
+        `;
+
+        fullscreenHeader.innerHTML = `
+            <h2 style="margin: 0; color: #2d3748; font-family: 'Segoe UI', sans-serif;">
+                Organization Chart - Full Screen View
+            </h2>
+            <button onclick="window.exitFullscreen()" style="
+                background: #e53e3e;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+                font-family: 'Segoe UI', sans-serif;
+            ">
+                ✕ ${t ? t('exitFullScreen') : 'Exit Full Screen'}
+            </button>
+        `;
+
+        // チャート全体のサイズを取得
+        const chartDimensions = this.getFullChartDimensions();
+        
+        // チャートコンテナをフル画面用に調整
+        const fullscreenChartContainer = document.createElement('div');
+        fullscreenChartContainer.style.cssText = `
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #ffffff;
+            overflow: auto;
+            max-height: calc(100vh - 120px);
+            position: relative;
+            padding: 20px;
+        `;
+
+        // チャートラッパーを作成（実際のサイズで）
+        const chartWrapper = document.createElement('div');
+        chartWrapper.style.cssText = `
+            position: relative;
+            width: ${chartDimensions.width}px;
+            height: ${chartDimensions.height}px;
+        `;
+
+        // 元のチャートコンテンツをクローン
+        const originalChart = this.elements.orgChart;
+        const chartClone = originalChart.cloneNode(true);
+        chartClone.id = 'fullscreenOrgChart';
+        chartClone.style.width = chartDimensions.width + 'px';
+        chartClone.style.height = chartDimensions.height + 'px';
+        
+        chartWrapper.appendChild(chartClone);
+        fullscreenChartContainer.appendChild(chartWrapper);
+
+        // オーバーレイに要素を追加
+        fullscreenOverlay.appendChild(fullscreenHeader);
+        fullscreenOverlay.appendChild(fullscreenChartContainer);
+
+        // 既存の凡例があれば追加
+        this.addLegendsToFullscreen(fullscreenOverlay);
+
+        // ボディに追加
+        document.body.appendChild(fullscreenOverlay);
+
+        // Escキーでフル画面を終了
+        this.setupFullscreenKeyboardEvents();
+
+        // ステータス更新
+        this.isFullscreen = true;
+        this.updateFullscreenButton();
+
+        ConfigUtils.debugLog('フル画面表示開始', 'ui');
+    }
+
+    /**
+     * フル画面表示を終了
+     */
+    exitFullscreen() {
+        const fullscreenOverlay = document.getElementById('fullscreenOverlay');
+        if (fullscreenOverlay) {
+            fullscreenOverlay.remove();
+        }
+
+        // 元のスタイルを復元
+        this.restoreOriginalStyles();
+
+        // キーボードイベントを削除
+        document.removeEventListener('keydown', this.fullscreenKeyHandler);
+
+        // ステータス更新
+        this.isFullscreen = false;
+        this.updateFullscreenButton();
+
+        ConfigUtils.debugLog('フル画面表示終了', 'ui');
+    }
+
+    /**
+     * 元のスタイルを保存
+     */
+    saveOriginalStyles() {
+        this.originalStyles = {
+            body: {
+                overflow: document.body.style.overflow,
+                position: document.body.style.position
+            }
+        };
+
+        // ボディのスクロールを無効化
+        document.body.style.overflow = 'hidden';
+    }
+
+    /**
+     * 元のスタイルを復元
+     */
+    restoreOriginalStyles() {
+        if (this.originalStyles.body) {
+            document.body.style.overflow = this.originalStyles.body.overflow;
+            document.body.style.position = this.originalStyles.body.position;
+        }
+    }
+
+    /**
+     * チャート全体の寸法を取得
+     * @returns {Object} {width, height}
+     */
+    getFullChartDimensions() {
+        const container = this.elements.orgChart;
+        let maxX = 0;
+        let maxY = 0;
+        
+        // すべての組織ボックスを確認
+        const boxes = container.querySelectorAll('.org-box');
+        boxes.forEach(box => {
+            const left = parseInt(box.style.left) || 0;
+            const top = parseInt(box.style.top) || 0;
+            const width = box.offsetWidth || 85;
+            const height = box.offsetHeight || 100;
+            
+            maxX = Math.max(maxX, left + width);
+            maxY = Math.max(maxY, top + height);
+        });
+        
+        // 接続線も考慮
+        const lines = container.querySelectorAll('.connection-line');
+        lines.forEach(line => {
+            const left = parseInt(line.style.left) || 0;
+            const top = parseInt(line.style.top) || 0;
+            const width = parseInt(line.style.width) || 0;
+            const height = parseInt(line.style.height) || 0;
+            
+            maxX = Math.max(maxX, left + width);
+            maxY = Math.max(maxY, top + height);
+        });
+        
+        // マージンを追加
+        return {
+            width: maxX + 50,
+            height: maxY + 50
+        };
+    }
+
+    /**
+     * フル画面に凡例を追加
+     */
+    addLegendsToFullscreen(container) {
+        // Call Name凡例
+        const callNameLegend = document.getElementById('callNameLegend');
+        if (callNameLegend) {
+            const legendClone = callNameLegend.cloneNode(true);
+            legendClone.id = 'fullscreenCallNameLegend';
+            legendClone.style.marginTop = '20px';
+            container.appendChild(legendClone);
+        }
+
+        // 色凡例
+        const colorLegend = document.getElementById('colorLegend');
+        if (colorLegend) {
+            const legendClone = colorLegend.cloneNode(true);
+            legendClone.id = 'fullscreenColorLegend';
+            legendClone.style.marginTop = '20px';
+            container.appendChild(legendClone);
+        }
+    }
+
+    /**
+     * フル画面用キーボードイベントを設定
+     */
+    setupFullscreenKeyboardEvents() {
+        this.fullscreenKeyHandler = (e) => {
+            if (e.key === 'Escape') {
+                this.exitFullscreen();
+            }
+        };
+        document.addEventListener('keydown', this.fullscreenKeyHandler);
+    }
+
+    /**
+     * フル画面ボタンのテキストを更新
+     */
+    updateFullscreenButton() {
+        if (this.elements.fullscreenBtn) {
+            const text = this.isFullscreen ? 
+                (t ? t('exitFullScreen') : 'Exit Full Screen') : 
+                (t ? t('fullScreen') : 'Full Screen');
+            this.elements.fullscreenBtn.textContent = text;
+        }
+    }
+
+    /**
      * アプリケーション状態をチェック
      */
     getAppState() {
@@ -873,7 +1295,8 @@ class UIController {
             settings: this.getCurrentSettings(),
             hasErrors: this.dataProcessor.getErrors().length > 0,
             chartGenerated: this.elements.orgChart.children.length > 0,
-            dataTableVisible: this.dataTableManager ? this.dataTableManager.isVisible() : false
+            dataTableVisible: this.dataTableManager ? this.dataTableManager.isVisible() : false,
+            isFullscreen: this.isFullscreen
         };
     }
 

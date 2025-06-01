@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Font Size Fix Test</title>
+    
+    <!-- External libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="styles/components.css">
+    
+    <style>
+        .test-section {
+            margin: 20px;
+            padding: 20px;
+            border: 1px solid #ccc;
+            background: #f9f9f9;
+        }
+        
+        .debug-info {
+            background: #333;
+            color: #0f0;
+            padding: 10px;
+            font-family: monospace;
+            margin: 10px 0;
+            white-space: pre;
+        }
+        
+        .test-controls {
+            margin: 20px 0;
+        }
+        
+        .test-chart {
+            position: relative;
+            min-height: 200px;
+            border: 1px solid #ddd;
+            background: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Font Size Fix Test</h1>
+        
+        <div class="test-section">
+            <h2>Test Controls</h2>
+            <div class="test-controls">
+                <label>Font Size:</label>
+                <select id="testFontSize" onchange="updateStyles()">
+                    <option value="small">Small</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="large">Large</option>
+                </select>
+                
+                <label style="margin-left: 20px;">Box Size:</label>
+                <select id="testBoxSize" onchange="updateStyles()">
+                    <option value="small">Small</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="large">Large</option>
+                </select>
+                
+                <button onclick="testRender()" style="margin-left: 20px;">Render Test Chart</button>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>CSS Variables</h2>
+            <div id="cssDebug" class="debug-info"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Test Organization Box</h2>
+            <div class="test-chart" id="testChart">
+                <!-- Test box will be rendered here -->
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Computed Styles</h2>
+            <div id="computedDebug" class="debug-info"></div>
+        </div>
+    </div>
+    
+    <!-- Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/data-processor.js"></script>
+    <script src="js/layout-calculator.js"></script>
+    <script src="js/chart-renderer.js"></script>
+    
+    <script>
+        function updateStyles() {
+            const fontSize = document.getElementById('testFontSize').value;
+            const boxSize = document.getElementById('testBoxSize').value;
+            
+            console.log('Updating styles:', { fontSize, boxSize });
+            
+            // Update CSS variables using ConfigUtils
+            const fonts = CONFIG.DEFAULTS.FONT_SIZES[fontSize];
+            const sizes = CONFIG.DEFAULTS.BOX_SIZES[boxSize];
+            
+            ConfigUtils.updateCSSVariables({
+                'font-size-org': fonts.org,
+                'font-size-name': fonts.name,
+                'font-size-role': fonts.role,
+                'org-box-width': sizes.width,
+                'org-box-height': sizes.height,
+                'org-spacing-x': sizes.spacingX,
+                'org-spacing-y': sizes.spacingY
+            });
+            
+            displayDebugInfo();
+        }
+        
+        function displayDebugInfo() {
+            const root = document.documentElement;
+            const computed = getComputedStyle(root);
+            
+            // Display CSS variables
+            const cssVars = [
+                'font-size-org',
+                'font-size-name',
+                'font-size-role',
+                'org-box-width',
+                'org-box-height',
+                'org-spacing-x',
+                'org-spacing-y'
+            ];
+            
+            let cssDebug = 'Current CSS Variables:\n';
+            cssVars.forEach(varName => {
+                const value = computed.getPropertyValue(`--${varName}`);
+                cssDebug += `--${varName}: ${value}\n`;
+            });
+            
+            document.getElementById('cssDebug').textContent = cssDebug;
+            
+            // Display computed styles if test box exists
+            const testBox = document.querySelector('.org-box');
+            if (testBox) {
+                const header = testBox.querySelector('.org-header');
+                const manager = testBox.querySelector('.org-manager');
+                const role = testBox.querySelector('.org-manager-role');
+                
+                let computedDebug = 'Computed Styles:\n';
+                
+                if (header) {
+                    const style = getComputedStyle(header);
+                    computedDebug += `org-header font-size: ${style.fontSize}\n`;
+                }
+                if (manager) {
+                    const style = getComputedStyle(manager);
+                    computedDebug += `org-manager font-size: ${style.fontSize}\n`;
+                }
+                if (role) {
+                    const style = getComputedStyle(role);
+                    computedDebug += `org-manager-role font-size: ${style.fontSize}\n`;
+                }
+                
+                const boxStyle = getComputedStyle(testBox);
+                computedDebug += `org-box width: ${boxStyle.width}\n`;
+                computedDebug += `org-box height: ${boxStyle.height}\n`;
+                
+                document.getElementById('computedDebug').textContent = computedDebug;
+            }
+        }
+        
+        function testRender() {
+            const container = document.getElementById('testChart');
+            container.innerHTML = '';
+            
+            // Create a test organization box
+            const box = document.createElement('div');
+            box.className = 'org-box';
+            box.style.position = 'absolute';
+            box.style.left = '50px';
+            box.style.top = '20px';
+            
+            const header = document.createElement('div');
+            header.className = 'org-header';
+            header.textContent = 'Test Department';
+            
+            const content = document.createElement('div');
+            content.className = 'org-content';
+            
+            const managerRole = document.createElement('div');
+            managerRole.className = 'org-manager-role';
+            managerRole.textContent = 'Department Manager';
+            
+            const managerName = document.createElement('div');
+            managerName.className = 'org-manager';
+            managerName.textContent = 'John Smith';
+            
+            const advisorRole = document.createElement('div');
+            advisorRole.className = 'org-advisor-role';
+            advisorRole.textContent = 'Technical Advisor';
+            
+            const advisorName = document.createElement('div');
+            advisorName.className = 'org-advisor';
+            advisorName.textContent = 'Jane Doe';
+            
+            content.appendChild(managerRole);
+            content.appendChild(managerName);
+            content.appendChild(advisorRole);
+            content.appendChild(advisorName);
+            
+            box.appendChild(header);
+            box.appendChild(content);
+            
+            container.appendChild(box);
+            
+            // Update debug info after rendering
+            setTimeout(displayDebugInfo, 100);
+        }
+        
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', () => {
+            updateStyles();
+            testRender();
+        });
+    </script>
+</body>
+</html>

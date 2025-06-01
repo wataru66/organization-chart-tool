@@ -1,6 +1,6 @@
 /**
- * 組織図作成ツール - メイン処理（修正版）
- * アプリケーションの初期化と制御
+ * Organization Chart Tool - Main Process (Revised Version)
+ * Application initialization and control
  */
 
 // アプリケーションのメインクラス
@@ -25,6 +25,12 @@ class OrgChartApp {
             // 依存ライブラリの確認
             this.checkDependencies();
             
+            // Initialize language system
+            this.initializeLanguageSystem();
+            
+            // Apply language translations to UI
+            this.applyTranslations();
+            
             // UIコントローラーを初期化
             this.uiController = new UIController();
             
@@ -47,9 +53,181 @@ class OrgChartApp {
     }
 
     /**
-     * 依存ライブラリを確認
+     * Initialize the language system
      */
-/**
+    initializeLanguageSystem() {
+        if (typeof LanguageManager !== 'undefined') {
+            LanguageManager.initialize();
+            ConfigUtils.debugLog('Language system initialized', 'app');
+        } else {
+            ConfigUtils.debugLog('LanguageManager not found, skipping language initialization', 'app');
+        }
+    }
+
+    /**
+     * Apply language translations to UI elements
+     */
+    applyTranslations() {
+        ConfigUtils.debugLog('Applying language translations', 'app');
+        
+        // Check if translation function exists
+        if (typeof t !== 'function') {
+            ConfigUtils.debugLog('Translation function not found', 'app');
+            return;
+        }
+        
+        // Page title and headers
+        const pageTitle = document.getElementById('pageTitle');
+        if (pageTitle) pageTitle.textContent = t('title');
+        
+        const pageSubtitle = document.getElementById('pageSubtitle');
+        if (pageSubtitle) pageSubtitle.textContent = t('subtitle');
+        
+        const pageUsage = document.getElementById('pageUsage');
+        if (pageUsage) pageUsage.innerHTML = `💡 <strong>${t('usage').split(':')[0]}:</strong> ${t('usage').split(':')[1]}`;
+        
+        // Demo mode
+        const demoMode = document.getElementById('demoMode');
+        if (demoMode) demoMode.textContent = t('demoMode');
+        
+        // File drop zone
+        const dropZoneText = document.getElementById('dropZoneText');
+        if (dropZoneText) dropZoneText.textContent = t('fileDropZone');
+        
+        const supportedFormats = document.getElementById('supportedFormats');
+        if (supportedFormats) supportedFormats.textContent = t('supportedFormats');
+        
+        // Control labels
+        const baseOrgLabel = document.getElementById('baseOrgLabel');
+        if (baseOrgLabel) baseOrgLabel.textContent = t('baseOrganization');
+        
+        const showAllOption = document.getElementById('showAllOption');
+        if (showAllOption) showAllOption.textContent = t('showAll');
+        
+        const levelLimitLabel = document.getElementById('levelLimitLabel');
+        if (levelLimitLabel) levelLimitLabel.textContent = t('levelLimit');
+        
+        const fontSizeLabel = document.getElementById('fontSizeLabel');
+        if (fontSizeLabel) fontSizeLabel.textContent = t('fontSize');
+        
+        const boxSizeLabel = document.getElementById('boxSizeLabel');
+        if (boxSizeLabel) boxSizeLabel.textContent = t('boxSize');
+        
+        const hideManagersLabel = document.getElementById('hideManagersLabel');
+        if (hideManagersLabel) {
+            // Update the text content while preserving the checkbox
+            const checkbox = hideManagersLabel.querySelector('input[type="checkbox"]');
+            hideManagersLabel.innerHTML = '';
+            hideManagersLabel.appendChild(checkbox);
+            hideManagersLabel.appendChild(document.createTextNode(' ' + t('hideManagers')));
+        }
+        
+        // Update select options
+        this.updateSelectOptions();
+        
+        // Update button texts
+        this.updateButtonTexts();
+        
+        // Data table title
+        const dataTableTitle = document.getElementById('dataTableTitle');
+        if (dataTableTitle) dataTableTitle.textContent = t('dataTableTitle');
+        
+        ConfigUtils.debugLog('Translations applied successfully', 'app');
+    }
+
+    /**
+     * Update select option texts
+     */
+    updateSelectOptions() {
+        // Level select options
+        const levelSelect = document.getElementById('levelSelect');
+        if (levelSelect) {
+            levelSelect.options[0].textContent = t('noLimit');
+            for (let i = 1; i < levelSelect.options.length; i++) {
+                const value = levelSelect.options[i].value;
+                levelSelect.options[i].textContent = t('levelsUpTo', { n: value });
+            }
+        }
+        
+        // Font size select options
+        const fontSizeSelect = document.getElementById('fontSizeSelect');
+        if (fontSizeSelect) {
+            fontSizeSelect.options[0].textContent = t('small');
+            fontSizeSelect.options[1].textContent = t('medium');
+            fontSizeSelect.options[2].textContent = t('large');
+        }
+        
+        // Box size select options
+        const boxSizeSelect = document.getElementById('boxSizeSelect');
+        if (boxSizeSelect) {
+            boxSizeSelect.options[0].textContent = t('small');
+            boxSizeSelect.options[1].textContent = t('medium');
+            boxSizeSelect.options[2].textContent = t('large');
+        }
+    }
+
+    /**
+     * Update button texts
+     */
+    updateButtonTexts() {
+        const buttonMappings = {
+            'generateBtn': 'generateChart',
+            'showTableBtn': 'showDataTable',
+            'validateBtn': 'validateData',
+            'exportSvgBtn': 'exportSVG',
+            'exportPngBtn': 'exportPNG',
+            'printBtn': 'print'
+        };
+        
+        Object.entries(buttonMappings).forEach(([id, langKey]) => {
+            const button = document.getElementById(id);
+            if (button) {
+                button.textContent = t(langKey);
+            }
+        });
+        
+        // Export empty template button (find by onclick)
+        const exportTemplateBtn = document.querySelector('button[onclick="exportEmptyTemplate()"]');
+        if (exportTemplateBtn) {
+            exportTemplateBtn.textContent = t('exportEmptyTemplate');
+        }
+        
+        // Export current data button (find by onclick)
+        const exportCurrentDataBtn = document.querySelector('button[onclick="exportCurrentData()"]');
+        if (exportCurrentDataBtn) {
+            exportCurrentDataBtn.textContent = t('exportCurrentData');
+        }
+        
+        // Export HTML button (find by onclick)
+        const exportHTMLBtn = document.querySelector('button[onclick="exportHTML()"]');
+        if (exportHTMLBtn) {
+            exportHTMLBtn.textContent = t('exportHTML');
+        }
+        
+        // Fullscreen button (find by onclick)
+        const fullscreenBtn = document.querySelector('button[onclick="toggleFullscreen()"]');
+        if (fullscreenBtn) {
+            fullscreenBtn.textContent = t('fullScreen');
+        }
+        
+        // Load sample data button (find by onclick)
+        const sampleDataBtn = document.querySelector('button[onclick="loadSampleData()"]');
+        if (sampleDataBtn) {
+            sampleDataBtn.textContent = t('loadSampleData');
+        }
+        
+        // Data table buttons
+        const addNewRowBtn = document.querySelector('button[onclick="addNewRow()"]');
+        if (addNewRowBtn) addNewRowBtn.textContent = t('addNewRow');
+        
+        const applyChangesBtn = document.querySelector('button[onclick="applyChanges()"]');
+        if (applyChangesBtn) applyChangesBtn.textContent = t('applyChanges');
+        
+        const hideTableBtn = document.querySelector('button[onclick="hideDataTable()"]');
+        if (hideTableBtn) hideTableBtn.textContent = t('closeTable');
+    }
+
+    /**
      * 依存ライブラリを確認
      */
     checkDependencies() {
@@ -135,6 +313,36 @@ class OrgChartApp {
             }
         };
 
+        window.exportEmptyTemplate = () => {
+            if (this.uiController && this.uiController.exportUtils) {
+                this.uiController.exportUtils.exportEmptyTemplate();
+            }
+        };
+
+        window.exportCurrentData = () => {
+            if (this.uiController && this.uiController.exportUtils) {
+                this.uiController.exportUtils.exportCurrentDataToExcel();
+            }
+        };
+
+        window.exportHTML = () => {
+            if (this.uiController && this.uiController.exportUtils) {
+                this.uiController.exportUtils.exportHTML();
+            }
+        };
+
+        window.toggleFullscreen = () => {
+            if (this.uiController) {
+                this.uiController.toggleFullscreen();
+            }
+        };
+
+        window.exitFullscreen = () => {
+            if (this.uiController) {
+                this.uiController.exitFullscreen();
+            }
+        };
+
         window.showDataTable = () => {
             if (this.uiController) {
                 this.uiController.showDataTable();
@@ -146,6 +354,37 @@ class OrgChartApp {
             if (this.uiController) {
                 this.uiController.debugInfo();
             }
+        };
+
+        // 緊急用：すべてのポップアップを削除
+        window.clearAllPopups = () => {
+            const popupSelectors = [
+                '.validation-result-popup',
+                '.detailed-error-popup',
+                '.export-error-popup',
+                '.fatal-error-popup'
+            ];
+            
+            let removedCount = 0;
+            popupSelectors.forEach(selector => {
+                const popups = document.querySelectorAll(selector);
+                popups.forEach(popup => {
+                    popup.remove();
+                    removedCount++;
+                });
+            });
+            
+            // その他の固定位置要素も削除
+            const otherPopups = document.querySelectorAll('[style*="position: fixed"]');
+            otherPopups.forEach(popup => {
+                if (popup.style.zIndex > 1000) {
+                    popup.remove();
+                    removedCount++;
+                }
+            });
+            
+            console.log(`${removedCount}個のポップアップを削除しました`);
+            alert(`${removedCount}個のポップアップを削除しました`);
         };
 
         ConfigUtils.debugLog('グローバル関数を設定', 'app');
@@ -175,7 +414,12 @@ class OrgChartApp {
      * @param {string} message - エラーメッセージ
      */
     showFatalError(message) {
+        // 既存の致命的エラーポップアップを削除
+        const existingFatalErrors = document.querySelectorAll('.fatal-error-popup');
+        existingFatalErrors.forEach(popup => popup.remove());
+        
         const errorDiv = document.createElement('div');
+        errorDiv.className = 'fatal-error-popup';
         errorDiv.style.cssText = `
             position: fixed;
             top: 0;

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Export Test</title>
+    <style>
+        /* Minimum required styles */
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        
+        /* Chart container with no width restrictions */
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            display: inline-block;
+            position: relative;
+        }
+        
+        /* Chart itself */
+        #orgChart {
+            position: relative;
+            width: 800px;  /* Simulating a large chart */
+            height: 600px;
+            border: 1px solid #ddd;
+        }
+        
+        /* Organization boxes */
+        .org-box {
+            position: absolute;
+            width: 85px;
+            height: 100px;
+            border: 2px solid #333;
+            background: #f9f9f9;
+            border-radius: 4px;
+            z-index: 10;
+        }
+        
+        .org-header {
+            background: #4a5568;
+            color: white;
+            padding: 5px;
+            text-align: center;
+            font-size: 12px;
+        }
+        
+        .org-content {
+            padding: 5px;
+            font-size: 10px;
+        }
+        
+        /* Connection lines */
+        .connection-line {
+            position: absolute;
+            background: #333;
+            z-index: 1;
+        }
+        
+        .connection-line.horizontal {
+            height: 2px;
+        }
+        
+        .connection-line.vertical {
+            width: 2px;
+        }
+        
+        /* Info display */
+        .info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Export HTML Test - No Width Restrictions</h1>
+        <p>This demonstrates a chart without any container width limitations</p>
+    </div>
+    
+    <div class="chart-container">
+        <div id="orgChart">
+            <!-- Sample boxes to show width -->
+            <div class="org-box" style="left: 10px; top: 10px;">
+                <div class="org-header">CEO</div>
+                <div class="org-content">John Doe</div>
+            </div>
+            
+            <div class="org-box" style="left: 200px; top: 150px;">
+                <div class="org-header">CTO</div>
+                <div class="org-content">Jane Smith</div>
+            </div>
+            
+            <div class="org-box" style="left: 400px; top: 150px;">
+                <div class="org-header">CFO</div>
+                <div class="org-content">Bob Johnson</div>
+            </div>
+            
+            <div class="org-box" style="left: 600px; top: 150px;">
+                <div class="org-header">COO</div>
+                <div class="org-content">Alice Brown</div>
+            </div>
+            
+            <!-- Connection lines -->
+            <div class="connection-line vertical" style="left: 52px; top: 110px; height: 40px;"></div>
+            <div class="connection-line horizontal" style="left: 52px; top: 150px; width: 590px;"></div>
+            <div class="connection-line vertical" style="left: 242px; top: 150px; height: 50px;"></div>
+            <div class="connection-line vertical" style="left: 442px; top: 150px; height: 50px;"></div>
+            <div class="connection-line vertical" style="left: 642px; top: 150px; height: 50px;"></div>
+        </div>
+    </div>
+    
+    <div class="info">
+        <h3>Layout Information:</h3>
+        <p>Chart Width: <span id="chartWidth"></span></p>
+        <p>Container Width: <span id="containerWidth"></span></p>
+        <p>Body Width: <span id="bodyWidth"></span></p>
+        <p>Scroll Width: <span id="scrollWidth"></span></p>
+    </div>
+    
+    <script>
+        // Display width information
+        window.addEventListener('load', () => {
+            document.getElementById('chartWidth').textContent = 
+                document.getElementById('orgChart').offsetWidth + 'px';
+            document.getElementById('containerWidth').textContent = 
+                document.querySelector('.chart-container').offsetWidth + 'px';
+            document.getElementById('bodyWidth').textContent = 
+                document.body.offsetWidth + 'px';
+            document.getElementById('scrollWidth').textContent = 
+                document.body.scrollWidth + 'px';
+        });
+    </script>
+</body>
+</html>

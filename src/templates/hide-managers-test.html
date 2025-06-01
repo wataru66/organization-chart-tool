@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hide Managers Mode Test</title>
+    <link rel="stylesheet" href="../styles/main.css">
+    <link rel="stylesheet" href="../styles/components.css">
+    <style>
+        .test-container {
+            margin: 20px;
+            padding: 20px;
+            border: 1px solid #ccc;
+            background: #f9f9f9;
+        }
+        
+        .chart-container {
+            position: relative;
+            min-height: 500px;
+            border: 1px solid #ddd;
+            background: white;
+            overflow: auto;
+            margin: 20px 0;
+        }
+        
+        .controls {
+            margin: 20px 0;
+        }
+        
+        .controls label {
+            margin-right: 20px;
+        }
+        
+        .debug-info {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: white;
+            border: 1px solid #ccc;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 12px;
+            max-width: 300px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <h1>Hide Managers Mode Test</h1>
+    
+    <div class="test-container">
+        <div class="controls">
+            <label>
+                <input type="checkbox" id="hideManagersCheckbox"> Hide Managers
+            </label>
+            <label>
+                Box Size:
+                <select id="boxSizeSelect">
+                    <option value="small">Small</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="large">Large</option>
+                </select>
+            </label>
+            <button id="refreshBtn">Refresh Chart</button>
+        </div>
+        
+        <div class="debug-info">
+            <h4>Debug Info</h4>
+            <div id="debugInfo"></div>
+        </div>
+        
+        <div id="testChart" class="chart-container"></div>
+    </div>
+
+    <script src="../js/config.js"></script>
+    <script src="../js/data-processor.js"></script>
+    <script src="../js/layout-calculator.js"></script>
+    <script src="../js/chart-renderer.js"></script>
+    
+    <script>
+        class HideManagersTest {
+            constructor() {
+                this.container = document.getElementById('testChart');
+                this.setupEventListeners();
+                this.createTestData();
+                this.renderChart();
+            }
+            
+            setupEventListeners() {
+                document.getElementById('hideManagersCheckbox').addEventListener('change', () => this.renderChart());
+                document.getElementById('boxSizeSelect').addEventListener('change', () => this.renderChart());
+                document.getElementById('refreshBtn').addEventListener('click', () => this.renderChart());
+            }
+            
+            createTestData() {
+                // Create multi-level test data
+                this.processedData = {
+                    organizations: new Map([
+                        ['YKK IDN', {
+                            name: 'YKK IDN',
+                            longName: 'YKK Indonesia',
+                            teamLongName: 'Indonesia Company',
+                            level: 1,
+                            parent: null,
+                            managers: [{ name: 'Suzuki Taro', role: 'President' }],
+                            advisors: [],
+                            colors: { borderColor: '#2196f3', backgroundColor: '#e3f2fd' }
+                        }],
+                        ['Production', {
+                            name: 'Production',
+                            longName: 'Production Department',
+                            teamLongName: 'Production Department',
+                            level: 2,
+                            parent: 'YKK IDN',
+                            managers: [{ name: 'Arita Jiro', role: 'Factory manager' }],
+                            advisors: [],
+                            colors: {}
+                        }],
+                        ['CMG', {
+                            name: 'CMG',
+                            longName: 'Cimanggis Factory',
+                            teamLongName: 'Cimanggis Factory',
+                            level: 3,
+                            parent: 'Production',
+                            managers: [{ name: 'KBU', role: 'Deputy factory manager' }],
+                            advisors: [],
+                            colors: {}
+                        }],
+                        ['CBT', {
+                            name: 'CBT',
+                            longName: 'Cibitun Factory',
+                            teamLongName: 'Cibitun Factory',
+                            level: 3,
+                            parent: 'Production',
+                            managers: [{ name: 'Hindam', role: 'Deputy factory manager' }],
+                            advisors: [],
+                            colors: {}
+                        }],
+                        ['PF', {
+                            name: 'PF',
+                            longName: 'Plastic Fastener',
+                            teamLongName: 'Plastic Fastener Division',
+                            level: 4,
+                            parent: 'CMG',
+                            managers: [{ name: 'Fajar', role: 'Department Manager' }],
+                            advisors: [{ name: 'Nishio Ryosuke', role: 'Advisor' }],
+                            colors: {}
+                        }],
+                        ['QC', {
+                            name: 'QC',
+                            longName: 'Quality Control',
+                            teamLongName: 'Quality Control Team',
+                            level: 4,
+                            parent: 'CMG',
+                            managers: [{ name: 'QC Team', role: 'QC Manager' }],
+                            advisors: [],
+                            colors: {}
+                        }]
+                    ]),
+                    hierarchy: new Map([
+                        ['YKK IDN', ['Production']],
+                        ['Production', ['CMG', 'CBT']],
+                        ['CMG', ['PF', 'QC']]
+                    ])
+                };
+                
+                this.targetOrgs = ['YKK IDN', 'Production', 'CMG', 'CBT', 'PF', 'QC'];
+            }
+            
+            renderChart() {
+                const hideManagers = document.getElementById('hideManagersCheckbox').checked;
+                const boxSize = document.getElementById('boxSizeSelect').value;
+                
+                // Update styles
+                const chartRenderer = new ChartRenderer(this.container);
+                chartRenderer.updateStyles('medium', boxSize);
+                
+                // Calculate layout
+                const layoutCalculator = new LayoutCalculator(this.processedData);
+                const layout = layoutCalculator.calculateLayout(this.targetOrgs, null, { hideManagers });
+                
+                // Render chart
+                chartRenderer.render(layout, this.processedData, { hideManagers });
+                
+                // Update debug info
+                this.updateDebugInfo(layout, hideManagers, boxSize);
+            }
+            
+            updateDebugInfo(layout, hideManagers, boxSize) {
+                const root = document.documentElement;
+                const computed = getComputedStyle(root);
+                
+                const debugInfo = {
+                    'Mode': hideManagers ? 'Hide Managers' : 'Normal',
+                    'Box Size': boxSize,
+                    'Nodes': layout.nodes.length,
+                    'Connections': layout.connections.length,
+                    'Vertical Spacing': computed.getPropertyValue('--org-spacing-y'),
+                    'Box Height': hideManagers ? '35px' : computed.getPropertyValue('--org-box-height')
+                };
+                
+                // Check actual spacing
+                if (layout.nodes.length > 1) {
+                    const levels = [...new Set(layout.nodes.map(n => n.level))].sort();
+                    if (levels.length > 1) {
+                        const level1Nodes = layout.nodes.filter(n => n.level === levels[0]);
+                        const level2Nodes = layout.nodes.filter(n => n.level === levels[1]);
+                        if (level1Nodes.length > 0 && level2Nodes.length > 0) {
+                            const actualSpacing = level2Nodes[0].y - level1Nodes[0].y;
+                            debugInfo['Actual Spacing'] = actualSpacing + 'px';
+                        }
+                    }
+                }
+                
+                document.getElementById('debugInfo').innerHTML = 
+                    Object.entries(debugInfo)
+                        .map(([key, value]) => `<div><strong>${key}:</strong> ${value}</div>`)
+                        .join('');
+            }
+        }
+        
+        // Initialize test
+        window.addEventListener('DOMContentLoaded', () => {
+            new HideManagersTest();
+        });
+    </script>
+</body>
+</html>

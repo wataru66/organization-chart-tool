@@ -1,6 +1,7 @@
 /**
- * 組織図作成ツール - データテーブル管理モジュール（エラー詳細表示版）
- * データの表示、編集、検証機能を提供 + 詳細エラー情報表示
+ * Organization Chart Tool - Data Table Management Module (Error Details Version)
+ * Provides data display, editing, validation functions + detailed error information display
+ * Includes drag & drop row reordering functionality
  */
 
 // カラーパレット管理クラス（完全修正版）
@@ -211,42 +212,42 @@ class ColorPaletteManager {
         
         paletteDiv.innerHTML = `
             <div class="palette-header palette-drag-handle" style="cursor: move;">
-                <span>${this.getFieldDisplayName(fieldName)}を選択</span>
+                <span>${t ? t('selectColor', { field: this.getFieldDisplayName(fieldName) }) : `Select ${this.getFieldDisplayName(fieldName)}`}</span>
                 <button type="button" class="close-btn">×</button>
             </div>
             
-            <!-- 部門別プリセット -->
+            <!-- Department presets -->
             <div class="preset-section">
-                <div class="section-title">部門別プリセット</div>
+                <div class="section-title">${t ? t('departmentPresets') : 'Department Presets'}</div>
                 <div class="preset-grid">
                     ${this.createPresetButtons(fieldName, rowIndex)}
                 </div>
             </div>
             
-            <!-- 15色パレット -->
+            <!-- Color palette -->
             <div class="palette-section">
-                <div class="section-title">カラーパレット</div>
+                <div class="section-title">${t ? t('colorPalette') : 'Color Palette'}</div>
                 <div class="color-grid">
                     ${this.createColorButtons(fieldName, currentValue, rowIndex)}
                 </div>
             </div>
             
-            <!-- カスタム色入力 -->
+            <!-- Custom color input -->
             <div class="custom-section">
-                <div class="section-title">カスタム色</div>
+                <div class="section-title">${t ? t('customColor') : 'Custom Color'}</div>
                 <div class="custom-input">
                     <input type="text" 
                            placeholder="#1976d2" 
                            class="custom-color-input"
                            style="width: 100px; font-family: monospace;">
-                    <button type="button" class="apply-btn">適用</button>
+                    <button type="button" class="apply-btn">${t ? t('apply') : 'Apply'}</button>
                 </div>
             </div>
             
-            <!-- クリアボタン -->
+            <!-- Clear button -->
             <div class="clear-section">
                 <button type="button" class="clear-btn">
-                    色をクリア（デフォルト使用）
+                    ${t ? t('clearColor') : 'Clear Color (Use Default)'}
                 </button>
             </div>
         `;
@@ -568,9 +569,9 @@ class ColorPaletteManager {
      */
     getFieldDisplayName(fieldName) {
         const displayNames = {
-            'borderColor': '枠線色（全体）',
-            'backgroundColor': 'ヘッダー背景色',
-            'headerTextColor': 'ヘッダー文字色'
+            'borderColor': t ? 'Border Color' : '枠線色（全体）',
+            'backgroundColor': t ? 'Header Background Color' : 'ヘッダー背景色',
+            'headerTextColor': t ? 'Header Text Color' : 'ヘッダー文字色'
         };
         return displayNames[fieldName] || fieldName;
     }
@@ -606,6 +607,11 @@ class DataTableManager {
         this.isTableVisible = false;
         this.colorPaletteManager = new ColorPaletteManager();
         
+        // Drag & Drop properties
+        this.draggedRow = null;
+        this.draggedIndex = null;
+        this.dropTargetIndex = null;
+        
         this.initializeElements();
     }
 
@@ -638,6 +644,8 @@ class DataTableManager {
         // DOM更新後にイベントリスナーを設定（修正版）
         setTimeout(() => {
             this.setupColorPickerEvents();
+            this.setupDragAndDropEvents();
+            this.applyInitialColumnVisibility();
         }, 100);
         
         this.showValidationSummary();
@@ -724,6 +732,257 @@ class DataTableManager {
     }
 
     /**
+     * 初期の列表示/非表示を適用
+     */
+    applyInitialColumnVisibility() {
+        // 初期設定で非表示にする列のインデックス
+        const hiddenColumns = [4, 6, 7, 8, 13, 16, 17, 18]; // Employee ID, Name(EN), Grade, Team ID, Role(JP), Border Color, Background Color, Header Text Color
+        
+        const table = document.querySelector('#dataTableSection table');
+        if (!table) return;
+        
+        hiddenColumns.forEach(columnIndex => {
+            // ヘッダー列を非表示
+            const headerCells = table.querySelectorAll('.table-header-main th');
+            if (headerCells[columnIndex - 1]) {
+                headerCells[columnIndex - 1].style.display = 'none';
+            }
+            
+            // データ列を非表示
+            const rows = table.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                const cell = row.cells[columnIndex - 1];
+                if (cell) {
+                    cell.style.display = 'none';
+                }
+            });
+            
+            // 対応するチェックボックスのチェックを外す
+            const checkbox = document.querySelector(`.table-header-controls input[onchange="window.toggleColumn(${columnIndex})"]`);
+            if (checkbox) {
+                checkbox.checked = false;
+            }
+        });
+        
+        this.debugLog('初期列表示設定を適用');
+    }
+
+    /**
+     * Setup drag and drop events for row reordering
+     */
+    setupDragAndDropEvents() {
+        console.log('🔄 Setting up drag and drop events');
+        
+        const rows = document.querySelectorAll('.draggable-row');
+        
+        rows.forEach((row, index) => {
+            const dragHandle = row.querySelector('.drag-handle');
+            
+            // Make row draggable only when drag handle is used
+            dragHandle.addEventListener('mousedown', (e) => {
+                row.setAttribute('draggable', 'true');
+            });
+            
+            row.addEventListener('dragstart', (e) => {
+                this.handleDragStart(e, row);
+            });
+            
+            row.addEventListener('dragend', (e) => {
+                this.handleDragEnd(e, row);
+                row.setAttribute('draggable', 'false');
+            });
+            
+            row.addEventListener('dragover', (e) => {
+                this.handleDragOver(e, row);
+            });
+            
+            row.addEventListener('drop', (e) => {
+                this.handleDrop(e, row);
+            });
+            
+            row.addEventListener('dragenter', (e) => {
+                this.handleDragEnter(e, row);
+            });
+            
+            row.addEventListener('dragleave', (e) => {
+                this.handleDragLeave(e, row);
+            });
+        });
+        
+        console.log('✅ Drag and drop events set up for', rows.length, 'rows');
+    }
+
+    /**
+     * Handle drag start event
+     */
+    handleDragStart(e, row) {
+        this.draggedRow = row;
+        this.draggedIndex = parseInt(row.getAttribute('data-index'));
+        
+        // Add dragging class
+        row.classList.add('dragging');
+        
+        // Set drag effect
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/html', row.innerHTML);
+        
+        console.log('🎯 Drag started on row index:', this.draggedIndex);
+    }
+
+    /**
+     * Handle drag end event
+     */
+    handleDragEnd(e, row) {
+        row.classList.remove('dragging');
+        
+        // Remove all drag over classes
+        document.querySelectorAll('.draggable-row').forEach(r => {
+            r.classList.remove('drag-over-top', 'drag-over-bottom');
+        });
+        
+        this.draggedRow = null;
+        this.draggedIndex = null;
+        this.dropTargetIndex = null;
+        
+        console.log('🎯 Drag ended');
+    }
+
+    /**
+     * Handle drag over event
+     */
+    handleDragOver(e, row) {
+        if (e.preventDefault) {
+            e.preventDefault(); // Allows us to drop
+        }
+        
+        e.dataTransfer.dropEffect = 'move';
+        
+        const rect = row.getBoundingClientRect();
+        const midpoint = rect.top + rect.height / 2;
+        
+        // Remove existing classes
+        row.classList.remove('drag-over-top', 'drag-over-bottom');
+        
+        // Add appropriate class based on cursor position
+        if (e.clientY < midpoint) {
+            row.classList.add('drag-over-top');
+        } else {
+            row.classList.add('drag-over-bottom');
+        }
+        
+        return false;
+    }
+
+    /**
+     * Handle drop event
+     */
+    handleDrop(e, targetRow) {
+        if (e.stopPropagation) {
+            e.stopPropagation(); // Stops some browsers from redirecting
+        }
+        
+        const targetIndex = parseInt(targetRow.getAttribute('data-index'));
+        
+        if (this.draggedIndex !== null && this.draggedIndex !== targetIndex) {
+            // Determine if dropping above or below
+            const rect = targetRow.getBoundingClientRect();
+            const midpoint = rect.top + rect.height / 2;
+            const insertBefore = e.clientY < midpoint;
+            
+            console.log('📍 Dropping row', this.draggedIndex, insertBefore ? 'before' : 'after', 'row', targetIndex);
+            
+            // Reorder the data
+            this.reorderRows(this.draggedIndex, targetIndex, insertBefore);
+        }
+        
+        return false;
+    }
+
+    /**
+     * Handle drag enter event
+     */
+    handleDragEnter(e, row) {
+        // Only add visual feedback, don't log to reduce noise
+    }
+
+    /**
+     * Handle drag leave event
+     */
+    handleDragLeave(e, row) {
+        // Check if we're leaving the row entirely
+        if (!row.contains(e.relatedTarget)) {
+            row.classList.remove('drag-over-top', 'drag-over-bottom');
+        }
+    }
+
+    /**
+     * Reorder rows in the data array
+     */
+    reorderRows(fromIndex, toIndex, insertBefore) {
+        console.log('🔄 Reordering rows:', { fromIndex, toIndex, insertBefore });
+        
+        // Get the actual indices in the tableData array (considering deleted rows)
+        const actualFromIndex = this.getActualIndex(fromIndex);
+        const actualToIndex = this.getActualIndex(toIndex);
+        
+        if (actualFromIndex === -1 || actualToIndex === -1) {
+            console.error('Invalid indices for reordering');
+            return;
+        }
+        
+        // Remove the item from the array
+        const [movedItem] = this.tableData.splice(actualFromIndex, 1);
+        
+        // Calculate the new position
+        let newPosition = actualToIndex;
+        if (actualFromIndex < actualToIndex && !insertBefore) {
+            newPosition = actualToIndex;
+        } else if (actualFromIndex < actualToIndex && insertBefore) {
+            newPosition = actualToIndex - 1;
+        } else if (actualFromIndex > actualToIndex && !insertBefore) {
+            newPosition = actualToIndex + 1;
+        } else {
+            newPosition = actualToIndex;
+        }
+        
+        // Insert at the new position
+        this.tableData.splice(newPosition, 0, movedItem);
+        
+        // Mark as modified
+        movedItem.isModified = true;
+        
+        // Re-render the table
+        this.renderTable();
+        
+        // Re-setup events after re-render
+        setTimeout(() => {
+            this.setupColorPickerEvents();
+            this.setupDragAndDropEvents();
+        }, 100);
+        
+        console.log('✅ Row reordered successfully');
+    }
+
+    /**
+     * Get actual index in tableData considering deleted rows
+     */
+    getActualIndex(visibleIndex) {
+        let actualIndex = 0;
+        let visibleCount = 0;
+        
+        for (let i = 0; i < this.tableData.length; i++) {
+            if (!this.tableData[i].isDeleted) {
+                if (visibleCount === visibleIndex) {
+                    return i;
+                }
+                visibleCount++;
+            }
+        }
+        
+        return -1;
+    }
+
+    /**
      * データテーブルを非表示
      */
     hideTable() {
@@ -761,15 +1020,17 @@ class DataTableManager {
                         name: row[2] || '',
                         nameEn: row[3] || '',
                         grade: row[4] || '',
-                        teamLongName: row[5] || '',
-                        callName: row[6] || '',
-                        concurrent: row[7] || '',
+                        teamId: row[5] || '',
+                        teamLongName: row[6] || '',
+                        callName: row[7] || '',
                         parent: row[8] || '',
                         role: row[9] || '',
                         roleJp: row[10] || '',
                         borderColor: row[11] || '',
                         backgroundColor: row[12] || '',
                         headerTextColor: row[13] || '',
+                        teamBossFlag: row[14] || '',
+                        concurrent: row[15] || '',
                         isDeleted: false,
                         isModified: false,
                         validationStatus: 'pending'
@@ -796,6 +1057,10 @@ class DataTableManager {
      * @param {Error} error - エラーオブジェクト
      */
     showDetailedError(title, error) {
+        // 既存の詳細エラーポップアップを削除
+        const existingErrorPopups = document.querySelectorAll('.detailed-error-popup');
+        existingErrorPopups.forEach(popup => popup.remove());
+        
         const errorDetails = {
             message: error.message,
             stack: error.stack,
@@ -810,6 +1075,7 @@ class DataTableManager {
         console.error('詳細エラー情報:', errorDetails);
         
         const errorDiv = document.createElement('div');
+        errorDiv.className = 'detailed-error-popup';
         errorDiv.style.cssText = `
             position: fixed;
             top: 50%;
@@ -851,7 +1117,7 @@ class DataTableManager {
             </div>
             
             <div style="text-align: center;">
-                <button onclick="this.parentElement.remove()" style="
+                <button onclick="this.closest('.detailed-error-popup').remove()" style="
                     background: #4299e1;
                     color: white;
                     border: none;
@@ -860,7 +1126,7 @@ class DataTableManager {
                     cursor: pointer;
                     font-size: 16px;
                 ">閉じる</button>
-                <button onclick="console.log('エラー詳細:', ${JSON.stringify(errorDetails).replace(/"/g, '&quot;')})" style="
+                <button onclick="console.log('エラー詳細:', JSON.stringify(${JSON.stringify(errorDetails)}))" style="
                     background: #718096;
                     color: white;
                     border: none;
@@ -872,6 +1138,23 @@ class DataTableManager {
                 ">コンソールに詳細出力</button>
             </div>
         `;
+        
+        // Escキーで閉じる機能を追加
+        const closeHandler = (e) => {
+            if (e.key === 'Escape') {
+                errorDiv.remove();
+                document.removeEventListener('keydown', closeHandler);
+            }
+        };
+        document.addEventListener('keydown', closeHandler);
+        
+        // オーバーレイクリックで閉じる機能を追加
+        errorDiv.addEventListener('click', (e) => {
+            if (e.target === errorDiv) {
+                errorDiv.remove();
+                document.removeEventListener('keydown', closeHandler);
+            }
+        });
         
         document.body.appendChild(errorDiv);
     }
@@ -890,6 +1173,8 @@ class DataTableManager {
             
             const tr = document.createElement('tr');
             tr.setAttribute('data-index', index);
+            tr.setAttribute('draggable', 'true');
+            tr.className = 'draggable-row';
             
             if (row.isModified) {
                 tr.style.backgroundColor = '#fff5f5';
@@ -897,8 +1182,12 @@ class DataTableManager {
             }
 
             tr.innerHTML = `
+                <td style="text-align: center; background: #f8f9fa; font-weight: bold; color: #6c757d;">
+                    ${index + 2}
+                </td>
                 <td>
-                    <button onclick="window.deleteRow(${index})" class="btn-danger" title="行を削除">削除</button>
+                    <span class="drag-handle" title="Drag to reorder">☰</span>
+                    <button onclick="window.deleteRow(${index})" class="btn-danger" title="Delete row">${t ? t('delete') : 'Delete'}</button>
                 </td>
                 <td>
                     <input type="number" value="${row.level}" 
@@ -926,6 +1215,11 @@ class DataTableManager {
                            style="width: 60px;">
                 </td>
                 <td>
+                    <input type="text" value="${row.teamId || ''}" 
+                           onchange="window.updateCell(${index}, 'teamId', this.value)"
+                           style="width: 80px;" placeholder="Team ID">
+                </td>
+                <td>
                     <input type="text" value="${row.teamLongName}" 
                            onchange="window.updateCell(${index}, 'teamLongName', this.value)"
                            style="width: 150px;" placeholder="正式組織名">
@@ -936,14 +1230,9 @@ class DataTableManager {
                            style="width: 100px;" required>
                 </td>
                 <td>
-                    <input type="text" value="${row.concurrent}" 
-                           onchange="window.updateCell(${index}, 'concurrent', this.value)"
-                           style="width: 60px;">
-                </td>
-                <td>
                     <select onchange="window.updateCell(${index}, 'parent', this.value)"
                             style="width: 120px;">
-                        <option value="">選択してください</option>
+                        <option value="">${t ? t('selectPlease') : 'Please select'}</option>
                         <option value="N/A" ${row.parent === 'N/A' ? 'selected' : ''}>N/A</option>
                         ${this.getCallNameOptions(row.parent)}
                     </select>
@@ -957,6 +1246,20 @@ class DataTableManager {
                     <input type="text" value="${row.roleJp}" 
                            onchange="window.updateCell(${index}, 'roleJp', this.value)"
                            style="width: 100px;">
+                </td>
+                <td>
+                    <select onchange="window.updateCell(${index}, 'teamBossFlag', this.value)"
+                            style="width: 80px;" title="Select Y if this person is team boss">
+                        <option value="" ${!row.teamBossFlag || row.teamBossFlag === '' ? 'selected' : ''}></option>
+                        <option value="Y" ${row.teamBossFlag === 'Y' ? 'selected' : ''}>Y</option>
+                    </select>
+                </td>
+                <td>
+                    <select onchange="window.updateCell(${index}, 'concurrent', this.value)"
+                            style="width: 80px;" title="Select Y if this person is concurrent assignment">
+                        <option value="" ${!row.concurrent || row.concurrent === '' ? 'selected' : ''}></option>
+                        <option value="Y" ${row.concurrent === 'Y' ? 'selected' : ''}>Y</option>
+                    </select>
                 </td>
                 <td>
                     ${this.colorPaletteManager.createColorPicker('borderColor', row.borderColor, index)}
@@ -983,29 +1286,58 @@ class DataTableManager {
     }
 
     /**
-     * テーブルヘッダーを更新（色列追加・修正版）
+     * テーブルヘッダーを更新（色列追加・チームボスフラグ対応版）
      */
     updateTableHeader() {
         const tableHeader = document.querySelector('#dataTableSection .table-container table thead');
         if (tableHeader) {
             tableHeader.innerHTML = `
-                <tr>
-                    <th>操作</th>
-                    <th>階層</th>
-                    <th>従業員番号</th>
-                    <th>名前</th>
-                    <th>英語名</th>
-                    <th>等級</th>
-                    <th>Team Long Name</th>
-                    <th>Call Name</th>
-                    <th>兼任</th>
-                    <th>親組織</th>
-                    <th>Role</th>
-                    <th>役割</th>
-                    <th>枠線色🎨</th>
-                    <th>ヘッダー背景色🎨</th>
-                    <th>ヘッダー文字色🎨</th>
-                    <th>状態</th>
+                <tr class="table-header-controls">
+                    <td colspan="19" style="padding: 10px; background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                        <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                            <strong>Column Visibility:</strong>
+                            <label><input type="checkbox" checked onchange="window.toggleColumn(1)"> Row</label>
+                            <label><input type="checkbox" checked onchange="window.toggleColumn(2)"> Actions</label>
+                            <label><input type="checkbox" checked onchange="window.toggleColumn(3)"> Level</label>
+                            <label><input type="checkbox" onchange="window.toggleColumn(4)"> Employee ID</label>
+                            <label><input type="checkbox" checked onchange="window.toggleColumn(5)"> *Name</label>
+                            <label><input type="checkbox" onchange="window.toggleColumn(6)"> Name(EN)</label>
+                            <label><input type="checkbox" onchange="window.toggleColumn(7)"> Grade</label>
+                            <label><input type="checkbox" onchange="window.toggleColumn(8)"> Team ID</label>
+                            <label><input type="checkbox" checked onchange="window.toggleColumn(9)"> Team Long Name</label>
+                            <label><input type="checkbox" checked onchange="window.toggleColumn(10)"> *Call Name</label>
+                            <label><input type="checkbox" checked onchange="window.toggleColumn(11)"> Parent</label>
+                            <label><input type="checkbox" checked onchange="window.toggleColumn(12)"> *Role</label>
+                            <label><input type="checkbox" onchange="window.toggleColumn(13)"> Role(JP)</label>
+                            <label><input type="checkbox" checked onchange="window.toggleColumn(14)"> Team Boss</label>
+                            <label><input type="checkbox" checked onchange="window.toggleColumn(15)"> Concurrent</label>
+                            <label><input type="checkbox" onchange="window.toggleColumn(16)"> Border Color</label>
+                            <label><input type="checkbox" onchange="window.toggleColumn(17)"> Background Color</label>
+                            <label><input type="checkbox" onchange="window.toggleColumn(18)"> Header Text Color</label>
+                            <label><input type="checkbox" checked onchange="window.toggleColumn(19)"> Status</label>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="table-header-main">
+                    <th style="text-align: center; min-width: 50px;">Row</th>
+                    <th style="text-align: center; min-width: 120px;">Actions</th>
+                    <th style="text-align: center; min-width: 60px;">Level</th>
+                    <th style="text-align: center; min-width: 80px;">Employee ID</th>
+                    <th style="text-align: center; min-width: 100px;">*Name</th>
+                    <th style="text-align: center; min-width: 100px;">Name(EN)</th>
+                    <th style="text-align: center; min-width: 60px;">Grade</th>
+                    <th style="text-align: center; min-width: 80px;">Team ID</th>
+                    <th style="text-align: center; min-width: 150px;">Team Long Name</th>
+                    <th style="text-align: center; min-width: 100px;">*Call Name</th>
+                    <th style="text-align: center; min-width: 120px;">Parent</th>
+                    <th style="text-align: center; min-width: 120px;">*Role</th>
+                    <th style="text-align: center; min-width: 100px;">Role(JP)</th>
+                    <th style="text-align: center; min-width: 80px;">Team Boss</th>
+                    <th style="text-align: center; min-width: 80px;">Concurrent</th>
+                    <th style="text-align: center; min-width: 100px;">Border Color</th>
+                    <th style="text-align: center; min-width: 120px;">Background Color</th>
+                    <th style="text-align: center; min-width: 120px;">Header Text Color</th>
+                    <th style="text-align: center; min-width: 80px;">Status</th>
                 </tr>
             `;
         }
@@ -1046,6 +1378,7 @@ class DataTableManager {
                 // レンダリング後にイベントを再設定
                 setTimeout(() => {
                     this.setupColorPickerEvents();
+                    this.setupDragAndDropEvents();
                 }, 100);
             }
             
@@ -1092,6 +1425,7 @@ class DataTableManager {
             // レンダリング後にイベントを再設定
             setTimeout(() => {
                 this.setupColorPickerEvents();
+                this.setupDragAndDropEvents();
             }, 100);
             this.debugLog(`行削除: ${index}`);
         }
@@ -1106,15 +1440,17 @@ class DataTableManager {
             name: '',
             nameEn: '',
             grade: '',
+            teamId: '',
             teamLongName: '',
             callName: '',
-            concurrent: '',
             parent: '',
             role: '',
             roleJp: '',
             borderColor: '',
             backgroundColor: '',
             headerTextColor: '',
+            teamBossFlag: '',
+            concurrent: '',
             isDeleted: false,
             isModified: true,
             validationStatus: 'invalid'
@@ -1125,6 +1461,7 @@ class DataTableManager {
         // レンダリング後にイベントを再設定
         setTimeout(() => {
             this.setupColorPickerEvents();
+            this.setupDragAndDropEvents();
         }, 100);
         this.debugLog('新規行を追加（色列含む）');
     }
@@ -1270,11 +1607,19 @@ class DataTableManager {
     }
 
     getValidationStatusText(status) {
+        if (!t) {
+            switch (status) {
+                case 'valid': return 'OK';
+                case 'invalid': return 'Error';
+                case 'warning': return 'Warning';
+                default: return 'Pending';
+            }
+        }
         switch (status) {
-            case 'valid': return 'OK';
-            case 'invalid': return 'エラー';
-            case 'warning': return '警告';
-            default: return '未検証';
+            case 'valid': return t('valid');
+            case 'invalid': return t('invalid');
+            case 'warning': return t('warning');
+            default: return t('pending');
         }
     }
 
@@ -1387,15 +1732,17 @@ class DataTableManager {
                         row.name || '',
                         row.nameEn || '',
                         row.grade || '',
+                        row.teamId || '',
                         row.teamLongName || '',
                         row.callName || '',
-                        row.concurrent || '',
                         row.parent || '',
                         row.role || '',
                         row.roleJp || '',
                         row.borderColor || '',
                         row.backgroundColor || '',
-                        row.headerTextColor || ''
+                        row.headerTextColor || '',
+                        row.teamBossFlag || '',
+                        row.concurrent || ''
                     ];
                 } catch (rowError) {
                     this.debugLog(`行${index}変換エラー: ${rowError.message}`);
@@ -1433,6 +1780,10 @@ class DataTableManager {
                 try {
                     window.app.uiController.updateBaseOrgSelect();
                     this.debugLog('基準組織セレクト更新完了');
+                    
+                    // 統計情報を更新
+                    window.app.uiController.showStats();
+                    this.debugLog('統計情報更新完了');
                 } catch (uiError) {
                     console.warn('UI更新でエラーが発生しましたが、処理を継続します:', uiError);
                 }
@@ -1634,6 +1985,52 @@ window.applyChanges = () => {
     if (window.app && window.app.uiController && window.app.uiController.dataTableManager) {
         window.app.uiController.dataTableManager.applyChanges();
     }
+};
+
+/**
+ * 列の表示/非表示を切り替え
+ * @param {number} columnIndex - 列番号（1から開始）
+ * @param {boolean} forceVisible - 強制的に表示/非表示を設定（省略時はチェックボックスの状態を使用）
+ */
+window.toggleColumn = (columnIndex, forceVisible) => {
+    const table = document.querySelector('#dataTableSection table');
+    if (!table) return;
+    
+    let isVisible;
+    
+    // forceVisibleが指定されていない場合は、イベントまたはチェックボックスから状態を取得
+    if (forceVisible !== undefined) {
+        isVisible = forceVisible;
+    } else if (window.event && window.event.target) {
+        const checkbox = window.event.target;
+        isVisible = checkbox.checked;
+    } else {
+        // イベントがない場合は、チェックボックスの現在の状態を取得
+        const checkbox = document.querySelector(`.table-header-controls input[onchange="window.toggleColumn(${columnIndex})"]`);
+        if (checkbox) {
+            isVisible = checkbox.checked;
+        } else {
+            return;
+        }
+    }
+    
+    // ヘッダー行の該当列を取得
+    const headerCells = table.querySelectorAll('.table-header-main th');
+    
+    if (headerCells[columnIndex - 1]) {
+        headerCells[columnIndex - 1].style.display = isVisible ? '' : 'none';
+    }
+    
+    // データ行の該当列を非表示/表示
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        const cell = row.cells[columnIndex - 1];
+        if (cell) {
+            cell.style.display = isVisible ? '' : 'none';
+        }
+    });
+    
+    console.log(`Column ${columnIndex} ${isVisible ? 'shown' : 'hidden'}`);
 };
 
 // グローバルに公開

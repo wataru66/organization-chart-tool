@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Font Size Fix Test</title>
+    <link rel="stylesheet" href="../styles/main.css">
+    <link rel="stylesheet" href="../styles/components.css">
+    <style>
+        .test-section {
+            margin: 20px;
+            padding: 20px;
+            border: 1px solid #ccc;
+            background: #f9f9f9;
+        }
+        
+        .test-chart {
+            position: relative;
+            height: 400px;
+            border: 1px solid #ddd;
+            background: white;
+            overflow: auto;
+        }
+        
+        .debug-panel {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(255,255,255,0.95);
+            border: 1px solid #ccc;
+            padding: 15px;
+            max-width: 300px;
+            font-family: monospace;
+            font-size: 12px;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .debug-panel h4 {
+            margin: 0 0 10px 0;
+        }
+        
+        .debug-info {
+            background: #f0f0f0;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Font Size Fix Test</h1>
+    
+    <div class="test-section">
+        <h2>Controls</h2>
+        <label>Font Size: 
+            <select id="fontSizeSelect">
+                <option value="small">Small</option>
+                <option value="medium" selected>Medium</option>
+                <option value="large">Large</option>
+            </select>
+        </label>
+        
+        <label>Box Size: 
+            <select id="boxSizeSelect">
+                <option value="small">Small</option>
+                <option value="medium" selected>Medium</option>
+                <option value="large">Large</option>
+            </select>
+        </label>
+        
+        <button id="testBtn">Test Update</button>
+        <button id="debugBtn">Show Debug Info</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test Chart</h2>
+        <div id="orgChart" class="test-chart"></div>
+    </div>
+    
+    <div class="debug-panel">
+        <h4>Debug Info</h4>
+        <div id="debugInfo"></div>
+    </div>
+
+    <!-- Load all required scripts -->
+    <script src="../js/config.js"></script>
+    <script src="../js/data-processor.js"></script>
+    <script src="../js/layout-calculator.js"></script>
+    <script src="../js/chart-renderer.js"></script>
+    
+    <script>
+        // Test implementation
+        class TestController {
+            constructor() {
+                this.chartContainer = document.getElementById('orgChart');
+                this.chartRenderer = new ChartRenderer(this.chartContainer);
+                this.setupEventListeners();
+                this.createTestChart();
+            }
+            
+            setupEventListeners() {
+                document.getElementById('testBtn').addEventListener('click', () => this.testUpdate());
+                document.getElementById('debugBtn').addEventListener('click', () => this.showDebugInfo());
+                document.getElementById('fontSizeSelect').addEventListener('change', () => this.updateStyles());
+                document.getElementById('boxSizeSelect').addEventListener('change', () => this.updateStyles());
+            }
+            
+            createTestChart() {
+                // Create simple test nodes
+                const testNodes = [
+                    { org: 'YKK IDN', x: 200, y: 50, level: 1 },
+                    { org: 'Production', x: 100, y: 200, level: 2 },
+                    { org: 'CMG', x: 300, y: 200, level: 2 }
+                ];
+                
+                // Create test data
+                const testData = {
+                    organizations: new Map([
+                        ['YKK IDN', {
+                            name: 'YKK IDN',
+                            longName: 'YKK Indonesia',
+                            teamLongName: 'Indonesia Company',
+                            level: 1,
+                            parent: null,
+                            managers: [{ name: 'Suzuki Taro', role: 'President' }],
+                            advisors: [],
+                            colors: {}
+                        }],
+                        ['Production', {
+                            name: 'Production',
+                            longName: 'Production Department',
+                            teamLongName: 'Production',
+                            level: 2,
+                            parent: 'YKK IDN',
+                            managers: [{ name: 'Arita Jiro', role: 'Factory manager' }],
+                            advisors: [],
+                            colors: {}
+                        }],
+                        ['CMG', {
+                            name: 'CMG',
+                            longName: 'Cimanggis Factory',
+                            teamLongName: 'Cimanggis Factory',
+                            level: 2,
+                            parent: 'YKK IDN',
+                            managers: [{ name: 'KBU', role: 'Deputy factory manager' }],
+                            advisors: [{ name: 'Nakanishi Wataru', role: 'Advisor' }],
+                            colors: {}
+                        }]
+                    ]),
+                    hierarchy: new Map([
+                        ['YKK IDN', ['Production', 'CMG']]
+                    ])
+                };
+                
+                // Update styles first
+                this.updateStyles();
+                
+                // Render test chart
+                const layout = {
+                    nodes: testNodes,
+                    connections: [
+                        { from: testNodes[0], to: testNodes[1] },
+                        { from: testNodes[0], to: testNodes[2] }
+                    ]
+                };
+                
+                this.chartRenderer.render(layout, testData);
+            }
+            
+            updateStyles() {
+                const fontSize = document.getElementById('fontSizeSelect').value;
+                const boxSize = document.getElementById('boxSizeSelect').value;
+                
+                console.log(`Updating styles: fontSize=${fontSize}, boxSize=${boxSize}`);
+                
+                this.chartRenderer.updateStyles(fontSize, boxSize);
+                
+                // Re-render after style update
+                setTimeout(() => {
+                    this.createTestChart();
+                    this.showDebugInfo();
+                }, 100);
+            }
+            
+            testUpdate() {
+                this.updateStyles();
+            }
+            
+            showDebugInfo() {
+                const root = document.documentElement;
+                const computed = getComputedStyle(root);
+                
+                const debugInfo = {
+                    'CSS Variables': {
+                        '--font-size-org': computed.getPropertyValue('--font-size-org'),
+                        '--font-size-name': computed.getPropertyValue('--font-size-name'),
+                        '--font-size-role': computed.getPropertyValue('--font-size-role'),
+                        '--org-box-width': computed.getPropertyValue('--org-box-width'),
+                        '--org-box-height': computed.getPropertyValue('--org-box-height'),
+                        '--org-spacing-y': computed.getPropertyValue('--org-spacing-y')
+                    },
+                    'Current Settings': {
+                        'fontSize': document.getElementById('fontSizeSelect').value,
+                        'boxSize': document.getElementById('boxSizeSelect').value
+                    }
+                };
+                
+                // Check actual rendered elements
+                const boxes = this.chartContainer.querySelectorAll('.org-box');
+                if (boxes.length > 0) {
+                    const firstBox = boxes[0];
+                    const header = firstBox.querySelector('.org-header');
+                    const manager = firstBox.querySelector('.org-manager');
+                    const role = firstBox.querySelector('.org-manager-role');
+                    
+                    debugInfo['Rendered Elements'] = {
+                        'Box count': boxes.length,
+                        'First box width': getComputedStyle(firstBox).width,
+                        'First box height': getComputedStyle(firstBox).height,
+                        'Header font-size': header ? getComputedStyle(header).fontSize : 'N/A',
+                        'Manager font-size': manager ? getComputedStyle(manager).fontSize : 'N/A',
+                        'Role font-size': role ? getComputedStyle(role).fontSize : 'N/A'
+                    };
+                }
+                
+                document.getElementById('debugInfo').innerHTML = 
+                    '<pre>' + JSON.stringify(debugInfo, null, 2) + '</pre>';
+            }
+        }
+        
+        // Initialize test
+        window.addEventListener('DOMContentLoaded', () => {
+            new TestController();
+        });
+    </script>
+</body>
+</html>

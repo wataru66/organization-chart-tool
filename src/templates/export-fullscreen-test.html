@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Export & Fullscreen Test</title>
+    <link rel="stylesheet" href="../styles/main.css">
+    <link rel="stylesheet" href="../styles/components.css">
+    <style>
+        .test-container {
+            margin: 20px;
+            padding: 20px;
+            border: 1px solid #ccc;
+        }
+        
+        .chart-wrapper {
+            background: white;
+            padding: 20px;
+            border: 1px solid #ddd;
+            margin: 20px 0;
+            overflow: auto;
+            max-height: 400px;
+        }
+        
+        #orgChart {
+            position: relative;
+            min-height: 300px;
+        }
+        
+        .controls {
+            margin: 20px 0;
+        }
+        
+        button {
+            margin: 5px;
+            padding: 8px 16px;
+            background: #4299e1;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background: #3182ce;
+        }
+        
+        .info {
+            background: #f0f0f0;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Export & Fullscreen Test</h1>
+    
+    <div class="test-container">
+        <div class="controls">
+            <button id="generateBtn">Generate Large Chart</button>
+            <button id="exportHTMLBtn">Export HTML</button>
+            <button id="fullscreenBtn">Full Screen</button>
+            <button id="showInfoBtn">Show Chart Info</button>
+        </div>
+        
+        <div id="chartInfo" class="info" style="display: none;"></div>
+        
+        <div class="chart-wrapper">
+            <div id="orgChart"></div>
+        </div>
+    </div>
+
+    <script src="../js/config.js"></script>
+    <script src="../js/data-processor.js"></script>
+    <script src="../js/layout-calculator.js"></script>
+    <script src="../js/chart-renderer.js"></script>
+    <script src="../js/export-utils.js"></script>
+    
+    <script>
+        class TestController {
+            constructor() {
+                this.container = document.getElementById('orgChart');
+                this.chartRenderer = new ChartRenderer(this.container);
+                this.exportUtils = new ExportUtils(this.chartRenderer);
+                this.isFullscreen = false;
+                
+                this.setupEventListeners();
+            }
+            
+            setupEventListeners() {
+                document.getElementById('generateBtn').addEventListener('click', () => this.generateLargeChart());
+                document.getElementById('exportHTMLBtn').addEventListener('click', () => this.exportHTML());
+                document.getElementById('fullscreenBtn').addEventListener('click', () => this.toggleFullscreen());
+                document.getElementById('showInfoBtn').addEventListener('click', () => this.showChartInfo());
+            }
+            
+            generateLargeChart() {
+                // Create a large test chart with many nodes
+                const testData = {
+                    organizations: new Map(),
+                    hierarchy: new Map()
+                };
+                
+                // Create multi-level hierarchy
+                const levels = [
+                    { name: 'CEO', level: 1, parent: null },
+                    { name: 'CTO', level: 2, parent: 'CEO' },
+                    { name: 'CFO', level: 2, parent: 'CEO' },
+                    { name: 'COO', level: 2, parent: 'CEO' },
+                    { name: 'Dev Manager', level: 3, parent: 'CTO' },
+                    { name: 'Finance Manager', level: 3, parent: 'CFO' },
+                    { name: 'Ops Manager', level: 3, parent: 'COO' },
+                    { name: 'Senior Dev 1', level: 4, parent: 'Dev Manager' },
+                    { name: 'Senior Dev 2', level: 4, parent: 'Dev Manager' },
+                    { name: 'Accountant 1', level: 4, parent: 'Finance Manager' },
+                    { name: 'Accountant 2', level: 4, parent: 'Finance Manager' },
+                    { name: 'Ops Specialist', level: 4, parent: 'Ops Manager' }
+                ];
+                
+                // Add organizations
+                levels.forEach(org => {
+                    testData.organizations.set(org.name, {
+                        name: org.name,
+                        longName: `${org.name} Department`,
+                        teamLongName: `${org.name} Team`,
+                        level: org.level,
+                        parent: org.parent,
+                        managers: [{ name: `Manager of ${org.name}`, role: org.name }],
+                        advisors: [],
+                        colors: {}
+                    });
+                    
+                    // Build hierarchy
+                    if (org.parent) {
+                        if (!testData.hierarchy.has(org.parent)) {
+                            testData.hierarchy.set(org.parent, []);
+                        }
+                        testData.hierarchy.get(org.parent).push(org.name);
+                    }
+                });
+                
+                // Calculate layout
+                const layoutCalculator = new LayoutCalculator(testData);
+                const targetOrgs = Array.from(testData.organizations.keys());
+                const layout = layoutCalculator.calculateLayout(targetOrgs, null);
+                
+                // Render chart
+                this.chartRenderer.render(layout, testData);
+                
+                alert('Large chart generated!');
+            }
+            
+            exportHTML() {
+                if (this.container.children.length === 0) {
+                    alert('Please generate a chart first!');
+                    return;
+                }
+                
+                this.exportUtils.exportHTML();
+            }
+            
+            toggleFullscreen() {
+                if (!this.isFullscreen) {
+                    this.enterFullscreen();
+                } else {
+                    this.exitFullscreen();
+                }
+            }
+            
+            enterFullscreen() {
+                const dimensions = this.getChartDimensions();
+                
+                const overlay = document.createElement('div');
+                overlay.id = 'fullscreenOverlay';
+                overlay.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100vw;
+                    height: 100vh;
+                    background: white;
+                    z-index: 9999;
+                    overflow: auto;
+                    padding: 20px;
+                `;
+                
+                const header = document.createElement('div');
+                header.innerHTML = `
+                    <h2>Organization Chart - Full Screen</h2>
+                    <button onclick="document.getElementById('fullscreenOverlay').remove()">Exit</button>
+                `;
+                header.style.marginBottom = '20px';
+                
+                const chartContainer = document.createElement('div');
+                chartContainer.style.cssText = `
+                    position: relative;
+                    width: ${dimensions.width}px;
+                    height: ${dimensions.height}px;
+                    border: 1px solid #ddd;
+                    background: white;
+                    padding: 20px;
+                `;
+                
+                const chartClone = this.container.cloneNode(true);
+                chartClone.style.width = dimensions.width + 'px';
+                chartClone.style.height = dimensions.height + 'px';
+                
+                chartContainer.appendChild(chartClone);
+                overlay.appendChild(header);
+                overlay.appendChild(chartContainer);
+                
+                document.body.appendChild(overlay);
+                this.isFullscreen = true;
+                
+                // Exit on button click
+                overlay.querySelector('button').addEventListener('click', () => {
+                    this.exitFullscreen();
+                });
+            }
+            
+            exitFullscreen() {
+                const overlay = document.getElementById('fullscreenOverlay');
+                if (overlay) {
+                    overlay.remove();
+                }
+                this.isFullscreen = false;
+            }
+            
+            getChartDimensions() {
+                let maxX = 0;
+                let maxY = 0;
+                
+                const boxes = this.container.querySelectorAll('.org-box');
+                boxes.forEach(box => {
+                    const left = parseInt(box.style.left) || 0;
+                    const top = parseInt(box.style.top) || 0;
+                    const width = box.offsetWidth || 85;
+                    const height = box.offsetHeight || 100;
+                    
+                    maxX = Math.max(maxX, left + width);
+                    maxY = Math.max(maxY, top + height);
+                });
+                
+                return {
+                    width: maxX + 50,
+                    height: maxY + 50
+                };
+            }
+            
+            showChartInfo() {
+                const dimensions = this.getChartDimensions();
+                const boxCount = this.container.querySelectorAll('.org-box').length;
+                
+                const info = `
+                    Chart Dimensions: ${dimensions.width} x ${dimensions.height}px
+                    Number of Boxes: ${boxCount}
+                    Container Size: ${this.container.offsetWidth} x ${this.container.offsetHeight}px
+                `;
+                
+                const infoDiv = document.getElementById('chartInfo');
+                infoDiv.textContent = info;
+                infoDiv.style.display = 'block';
+            }
+        }
+        
+        // Initialize
+        window.addEventListener('DOMContentLoaded', () => {
+            new TestController();
+        });
+    </script>
+</body>
+</html>

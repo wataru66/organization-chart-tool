@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>組織図作成ツール（Call Name対応版）</title>
+    <title data-i18n="title">Organization Chart Tool</title>
     
     <!-- 外部ライブラリ -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -15,146 +15,186 @@
 </head>
 <body>
     <div class="container">
-        <!-- ヘッダー -->
+        <!-- Header -->
         <div class="header">
-            <h1>組織図作成ツール（Call Name対応版）</h1>
-            <p>ExcelファイルからCall Nameベースの組織図を自動生成します</p>
-            <p><small>💡 <strong>使い方:</strong> 1️⃣ファイル選択 → 2️⃣データ検証 → 3️⃣組織図生成 → 4️⃣出力</small></p>
+            <div class="header-top">
+                <h1 id="pageTitle" data-i18n="title">Organization Chart Tool</h1>
+                <!-- Language selector will be injected here by LanguageManager -->
+            </div>
+            <div class="header-info">
+                <span id="pageSubtitle" data-i18n="subtitle">Automatically generate organization charts from Excel files</span>
+                <span class="separator">|</span>
+                <small id="pageUsage" data-i18n-html="usage">💡 <strong>Usage:</strong> 1️⃣ Select file → 2️⃣ Validate data → 3️⃣ Generate chart → 4️⃣ Export</small>
+            </div>
         </div>
 
-        <!-- デモモード表示 -->
-        <div id="demoMode" class="demo-mode" style="display: none;">
-            デモモード: サンプルデータで動作確認中
+        <!-- Demo mode display -->
+        <div id="demoMode" class="demo-mode" style="display: none;" data-i18n="demoMode">
+            Demo Mode: Running with sample data
         </div>
 
-        <!-- ファイルドロップゾーン -->
+        <!-- File drop zone -->
         <div id="dropZone" class="file-drop-zone">
-            <p>📁 Excelファイルをここにドロップまたはクリックして選択</p>
-            <p>対応形式: .xlsx, .xls</p>
+            <p id="dropZoneText" data-i18n="fileDropZone">📁 Drop Excel file here or click to select</p>
+            <p id="supportedFormats" data-i18n="supportedFormats">Supported formats: .xlsx, .xls</p>
             <input type="file" id="fileInput" accept=".xlsx,.xls" style="display: none;">
         </div>
 
-        <!-- コントロール -->
+        <!-- Controls -->
         <div class="controls">
             <div class="control-group">
-                <label for="baseOrgSelect">基準組織:</label>
+                <label for="baseOrgSelect" id="baseOrgLabel" data-i18n="baseOrganization">Base Organization:</label>
                 <select id="baseOrgSelect">
-                    <option value="">すべて表示</option>
+                    <option value="" id="showAllOption" data-i18n="showAll">Show All</option>
                 </select>
             </div>
             
             <div class="control-group">
-                <label for="levelSelect">階層制限:</label>
+                <label for="levelSelect" id="levelLimitLabel" data-i18n="levelLimit">Level Limit:</label>
                 <select id="levelSelect">
-                    <option value="0">制限なし</option>
-                    <option value="3">3階層まで</option>
-                    <option value="4">4階層まで</option>
-                    <option value="5" selected>5階層まで</option>
-                    <option value="6">6階層まで</option>
+                    <option value="0" data-i18n="noLimit">No Limit</option>
+                    <option value="3" data-i18n="levelsUpTo" data-i18n-params='{"n":3}'>Up to 3 levels</option>
+                    <option value="4" data-i18n="levelsUpTo" data-i18n-params='{"n":4}'>Up to 4 levels</option>
+                    <option value="5" selected data-i18n="levelsUpTo" data-i18n-params='{"n":5}'>Up to 5 levels</option>
+                    <option value="6" data-i18n="levelsUpTo" data-i18n-params='{"n":6}'>Up to 6 levels</option>
                 </select>
             </div>
             
             <div class="control-group">
-                <label for="fontSizeSelect">フォントサイズ:</label>
+                <label for="fontSizeSelect" id="fontSizeLabel" class="size-label" data-i18n="fontSize">Font Size:</label>
                 <select id="fontSizeSelect">
-                    <option value="small">小</option>
-                    <option value="medium" selected>中</option>
-                    <option value="large">大</option>
+                    <option value="small" data-i18n="small">Small</option>
+                    <option value="medium" selected data-i18n="medium">Medium</option>
+                    <option value="large" data-i18n="large">Large</option>
                 </select>
             </div>
             
             <div class="control-group">
-                <label for="boxSizeSelect">ボックスサイズ:</label>
+                <label for="boxSizeSelect" id="boxSizeLabel" class="size-label" data-i18n="boxSize">Box Size:</label>
                 <select id="boxSizeSelect">
-                    <option value="small">小</option>
-                    <option value="medium" selected>中</option>
-                    <option value="large">大</option>
+                    <option value="small" data-i18n="small">Small</option>
+                    <option value="medium" selected data-i18n="medium">Medium</option>
+                    <option value="large" data-i18n="large">Large</option>
                 </select>
             </div>
             
-            <br>
             
-            <button id="generateBtn" onclick="generateChart()" disabled class="btn-success">
-                組織図生成
-            </button>
             
-            <button id="showTableBtn" onclick="showDataTable()" disabled class="btn-secondary">
-                データテーブル表示・編集
-            </button>
-            
-            <button id="validateBtn" onclick="validateData()" disabled class="btn-warning">
-                データ検証・品質チェック
-            </button>
-            
-            <button id="exportSvgBtn" onclick="exportSVG()" disabled>
-                SVG出力
-            </button>
-            
-            <button id="exportPngBtn" onclick="exportPNG()" disabled>
-                PNG出力
-            </button>
-            
-            <button id="printBtn" onclick="printChart()" disabled>
-                印刷
-            </button>
-            
-            <button onclick="loadSampleData()" class="btn-warning">
-                サンプルデータ読み込み
-            </button>
+            <!-- データ操作グループ -->
+            <div class="button-group data-operations">
+                <h4 class="group-title" data-i18n="dataOperations">📁 Data Operations</h4>
+                <button onclick="loadSampleData()" class="btn-primary" data-i18n="loadSampleData">
+                    Load Sample Data
+                </button>
+                <button onclick="exportEmptyTemplate()" class="btn-primary" data-i18n="exportEmptyTemplate">
+                    Export Empty Template
+                </button>
+                <button onclick="exportCurrentData()" disabled id="exportCurrentDataBtn" class="btn-primary" data-i18n="exportCurrentData">
+                    Export Current Data
+                </button>
+            </div>
+
+            <!-- データ編集・検証グループ -->
+            <div class="button-group data-editing">
+                <h4 class="group-title" data-i18n="dataEditingValidation">🛠️ Data Editing & Validation</h4>
+                <button id="showTableBtn" onclick="showDataTable()" disabled class="btn-primary" data-i18n="showDataTable">
+                    Show/Edit Data Table
+                </button>
+                <button id="validateBtn" onclick="validateData()" disabled class="btn-primary" data-i18n="validateData">
+                    Validate Data
+                </button>
+            </div>
+
+            <!-- 組織図生成グループ -->
+            <div class="button-group chart-generation">
+                <h4 class="group-title" data-i18n="chartGeneration">🎯 Chart Generation</h4>
+                <label for="hideManagersCheckbox" id="hideManagersLabel" class="hide-managers-option">
+                    <input type="checkbox" id="hideManagersCheckbox"> 
+                    <span data-i18n="hideManagers">Hide Managers</span>
+                </label>
+                <button id="generateBtn" onclick="generateChart()" disabled class="btn-primary" data-i18n="generateChart">
+                    Generate Chart
+                </button>
+                <button onclick="toggleFullscreen()" disabled id="fullscreenBtn" class="btn-primary" data-i18n="fullScreen">
+                    Full Screen
+                </button>
+            </div>
+
+            <!-- エクスポート・出力グループ -->
+            <div class="button-group export-output">
+                <h4 class="group-title" data-i18n="exportOutput">📤 Export & Output</h4>
+                <button id="exportSvgBtn" onclick="exportSVG()" disabled class="btn-info" data-i18n="exportSVG">
+                    Export SVG
+                </button>
+                <button id="exportPngBtn" onclick="exportPNG()" disabled class="btn-info" data-i18n="exportPNG">
+                    Export PNG
+                </button>
+                <button onclick="exportHTML()" disabled id="exportHTMLBtn" class="btn-info" data-i18n="exportHTML">
+                    Export HTML
+                </button>
+                <button id="printBtn" onclick="printChart()" disabled class="btn-info" data-i18n="print">
+                    Print
+                </button>
+            </div>
+
         </div>
 
-        <!-- 統計情報 -->
+        <!-- Statistics -->
         <div id="stats" class="stats" style="display: none;">
-            <strong>📊 データ統計:</strong>
+            <strong>📊 Data Statistics:</strong>
             <span id="statsContent"></span>
         </div>
 
-        <!-- エラー表示 -->
+        <!-- Error display -->
         <div id="errors" class="errors" style="display: none;"></div>
 
-        <!-- データテーブルセクション -->
+        <!-- Data table section -->
         <div id="dataTableSection" class="data-table-section" style="display: none;">
             <div class="table-header">
-                <h3>データテーブル - 検証・編集</h3>
+                <h3 id="dataTableTitle" data-i18n="dataTableTitle">Data Table - Validation & Edit</h3>
                 <div class="table-controls">
-                    <button onclick="addNewRow()" class="btn-success">新規行追加</button>
-                    <button onclick="applyChanges()" class="btn-success">変更を適用</button>
-                    <button onclick="hideDataTable()" class="btn-secondary">テーブルを閉じる</button>
+                    <button onclick="addNewRow()" class="btn-success" data-i18n="addNewRow">Add New Row</button>
+                    <button onclick="applyChanges()" class="btn-success" data-i18n="applyChanges">Apply Changes</button>
+                    <button onclick="hideDataTable()" class="btn-secondary" data-i18n="closeTable">Close Table</button>
                 </div>
             </div>
             <div class="table-container">
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>操作</th>
-                            <th>階層</th>
-                            <th>従業員番号</th>
-                            <th>名前</th>
-                            <th>英語名</th>
-                            <th>等級</th>
-                            <th>Team Long Name</th>
-                            <th>Call Name</th>
-                            <th>兼任</th>
-                            <th>親組織</th>
-                            <th>Role</th>
-                            <th>役割</th>
-                            <th>状態</th>
+                            <th data-i18n="tableHeaders.actions">Actions</th>
+                            <th data-i18n="tableHeaders.level">Level</th>
+                            <th data-i18n="tableHeaders.employeeId">Employee ID</th>
+                            <th data-i18n="tableHeaders.name">Name</th>
+                            <th data-i18n="tableHeaders.nameEn">Name (EN)</th>
+                            <th data-i18n="tableHeaders.grade">Grade</th>
+                            <th data-i18n="tableHeaders.teamLongName">Team Long Name</th>
+                            <th data-i18n="tableHeaders.callName">Call Name</th>
+                            <th data-i18n="tableHeaders.concurrent">Concurrent</th>
+                            <th data-i18n="tableHeaders.parent">Parent Org</th>
+                            <th data-i18n="tableHeaders.role">Role</th>
+                            <th data-i18n="tableHeaders.roleJp">Role (JP)</th>
+                            <th>Team Boss</th>
+                            <th data-i18n="tableHeaders.borderColor">Border Color🎨</th>
+                            <th data-i18n="tableHeaders.backgroundColor">Header BG Color🎨</th>
+                            <th data-i18n="tableHeaders.headerTextColor">Header Text Color🎨</th>
+                            <th data-i18n="tableHeaders.status">Status</th>
                         </tr>
                     </thead>
                     <tbody id="dataTableBody">
-                        <!-- データ行がJavaScriptで動的に生成されます -->
+                        <!-- Data rows will be dynamically generated by JavaScript -->
                     </tbody>
                 </table>
             </div>
         </div>
 
-        <!-- 組織図表示エリア -->
+        <!-- Organization chart display area -->
         <div class="chart-container">
             <div id="orgChart"></div>
         </div>
     </div>
 
-    <!-- JavaScriptファイル読み込み -->
+    <!-- JavaScript files -->
     <script src="js/config.js"></script>
     <script src="js/data-processor.js"></script>
     <script src="js/layout-calculator.js"></script>
@@ -165,12 +205,12 @@
     <script src="js/main.js"></script>
 
     <script>
-        // グローバル関数の定義（HTMLから直接呼び出し用）
+        // Global function definitions (for direct HTML calls)
         function validateData() {
             if (window.app && window.app.uiController) {
                 window.app.uiController.validateData();
             } else {
-                alert('アプリケーションが初期化されていません');
+                alert('Application not initialized');
             }
         }
         
@@ -178,21 +218,21 @@
             if (window.app && window.app.uiController) {
                 window.app.uiController.showDataTable();
             } else {
-                alert('アプリケーションが初期化されていません');
+                alert('Application not initialized');
             }
         }
         
-        // デモモード用のパラメータチェック
+        // Check for demo mode parameters
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('demo') === 'true') {
-            // デモモードフラグが設定されている場合の処理はmain.jsで実行
-            console.log('デモモードでページを開きます');
+            // Demo mode flag processing is executed in main.js
+            console.log('Opening page in demo mode');
         }
         
-        // 開発用のデバッグ情報表示
+        // Debug information display for development
         if (urlParams.get('debug') === 'true') {
             CONFIG.DEBUG.ENABLED = true;
-            console.log('デバッグモードが有効になりました');
+            console.log('Debug mode enabled');
         }
     </script>
 </body>
