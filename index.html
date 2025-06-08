@@ -13,7 +13,7 @@
     <style>
         /* 基本スタイル */
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', 'Yu Gothic', 'Meiryo', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 20px;
             background: #f7fafc;
@@ -1404,7 +1404,21 @@
 
             async processExcelFile(file) {
                 try {
-                    const arrayBuffer = await file.arrayBuffer();
+                    let arrayBuffer;
+                    
+                    // Try modern approach first
+                    if (file.arrayBuffer) {
+                        arrayBuffer = await file.arrayBuffer();
+                    } else {
+                        // Fallback for older browsers
+                        arrayBuffer = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = (e) => resolve(e.target.result);
+                            reader.onerror = reject;
+                            reader.readAsArrayBuffer(file);
+                        });
+                    }
+                    
                     const workbook = XLSX.read(arrayBuffer, { type: 'array' });
                     
                     const sheetNames = workbook.SheetNames;
@@ -4418,7 +4432,7 @@
                 const textElement = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                 textElement.setAttribute('x', x);
                 textElement.setAttribute('y', y);
-                textElement.setAttribute('font-family', style.family || 'Arial, sans-serif');
+                textElement.setAttribute('font-family', style.family || '"Segoe UI", "Yu Gothic", "Meiryo", sans-serif');
                 textElement.setAttribute('font-size', style.size || '12px');
                 textElement.setAttribute('font-weight', style.weight || 'normal');
                 textElement.setAttribute('fill', color || '#333333');
@@ -4618,9 +4632,9 @@
                     .org-box { cursor: pointer; }
                     .org-box:hover .org-box-bg { stroke-width: 3; }
                     .connection-line { stroke: #666; stroke-width: 2; fill: none; }
-                    .team-name { font-family: Arial, sans-serif; font-weight: bold; }
-                    .pic-name { font-family: Arial, sans-serif; }
-                    .role { font-family: Arial, sans-serif; font-style: italic; }
+                    .team-name { font-family: 'Segoe UI', 'Yu Gothic', 'Meiryo', sans-serif; font-weight: bold; }
+                    .pic-name { font-family: 'Segoe UI', 'Yu Gothic', 'Meiryo', sans-serif; }
+                    .role { font-family: 'Segoe UI', 'Yu Gothic', 'Meiryo', sans-serif; font-style: italic; }
                 `;
                 svg.insertBefore(style, svg.firstChild);
             }
@@ -4633,7 +4647,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Organization Chart</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
+        body { font-family: 'Segoe UI', 'Yu Gothic', 'Meiryo', sans-serif; margin: 20px; }
         .chart-container { width: 100%; height: 600px; border: 1px solid #ccc; }
         svg { width: 100%; height: 100%; }
         .org-box { cursor: pointer; }
@@ -4651,6 +4665,13 @@
             }
 
             downloadBlob(blob, filename) {
+                // Check for IE/old Edge support
+                if (window.navigator && window.navigator.msSaveOrOpenBlob) {
+                    window.navigator.msSaveOrOpenBlob(blob, filename);
+                    return;
+                }
+                
+                // Modern browsers
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
@@ -4961,7 +4982,12 @@
                 ];
                 ws['!cols'] = colWidths;
                 
-                XLSX.writeFile(wb, filename);
+                // Use blob approach for better compatibility
+                const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                
+                // Use the same downloadBlob method as other exports
+                window.OrgChartTool.exportUtils.downloadBlob(blob, filename);
             }
 
             generateChart() {
