@@ -5041,38 +5041,88 @@
             }
             
             exportToExcel(data, filename) {
-                const ws = XLSX.utils.aoa_to_sheet(data);
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, 'Organization Chart');
-                
-                // Set column widths
-                const colWidths = [
-                    {wch: 8},  // Level
-                    {wch: 20}, // Team Name
-                    {wch: 25}, // Exact Team Name
-                    {wch: 20}, // Upper Team
-                    {wch: 12}, // Team ID
-                    {wch: 25}, // Role
-                    {wch: 25}, // Role (2nd Lang)
-                    {wch: 10}, // Team Boss
-                    {wch: 20}, // PIC Name
-                    {wch: 20}, // PIC Name (2nd Lang)
-                    {wch: 10}, // Concurrent
-                    {wch: 15}, // Employee CD
-                    {wch: 10}, // Grade
-                    {wch: 30}, // Memo
-                    {wch: 12}, // Border Color
-                    {wch: 15}, // Header BG Color
-                    {wch: 15}  // Header Text Color
-                ];
-                ws['!cols'] = colWidths;
-                
-                // Use blob approach for better compatibility
-                const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-                const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-                
-                // Use the same downloadBlob method as other exports
-                window.OrgChartTool.exportUtils.downloadBlob(blob, filename);
+                try {
+                    console.log('[EXPORT] Starting Excel export with filename:', filename);
+                    console.log('[EXPORT] Export utils availability:', {
+                        thisExportUtils: !!this.exportUtils,
+                        appExportUtils: !!(window.OrgChartTool && window.OrgChartTool.App && window.OrgChartTool.App.exportUtils),
+                        ExportUtilsClass: !!(window.OrgChartTool && window.OrgChartTool.ExportUtils)
+                    });
+                    
+                    const ws = XLSX.utils.aoa_to_sheet(data);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, 'Organization Chart');
+                    
+                    // Set column widths
+                    const colWidths = [
+                        {wch: 8},  // Level
+                        {wch: 20}, // Team Name
+                        {wch: 25}, // Exact Team Name
+                        {wch: 20}, // Upper Team
+                        {wch: 12}, // Team ID
+                        {wch: 25}, // Role
+                        {wch: 25}, // Role (2nd Lang)
+                        {wch: 10}, // Team Boss
+                        {wch: 20}, // PIC Name
+                        {wch: 20}, // PIC Name (2nd Lang)
+                        {wch: 10}, // Concurrent
+                        {wch: 15}, // Employee CD
+                        {wch: 10}, // Grade
+                        {wch: 30}, // Memo
+                        {wch: 12}, // Border Color
+                        {wch: 15}, // Header BG Color
+                        {wch: 15}  // Header Text Color
+                    ];
+                    ws['!cols'] = colWidths;
+                    
+                    // Use blob approach for better compatibility
+                    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                    
+                    console.log('[EXPORT] Blob created, size:', blob.size);
+                    
+                    // Use the downloadBlob method - try multiple access paths for compatibility
+                    if (this.exportUtils && this.exportUtils.downloadBlob) {
+                        console.log('[EXPORT] Using this.exportUtils.downloadBlob');
+                        this.exportUtils.downloadBlob(blob, filename);
+                    } else if (window.OrgChartTool && window.OrgChartTool.App && window.OrgChartTool.App.exportUtils) {
+                        console.log('[EXPORT] Using window.OrgChartTool.App.exportUtils.downloadBlob');
+                        window.OrgChartTool.App.exportUtils.downloadBlob(blob, filename);
+                    } else if (window.OrgChartTool && window.OrgChartTool.ExportUtils) {
+                        console.log('[EXPORT] Creating new ExportUtils instance');
+                        const exportUtils = new window.OrgChartTool.ExportUtils();
+                        exportUtils.downloadBlob(blob, filename);
+                    } else {
+                        console.log('[EXPORT] Using fallback download');
+                        this.fallbackDownloadBlob(blob, filename);
+                    }
+                } catch (error) {
+                    console.error('[EXPORT] Excel export failed:', error);
+                    throw error;
+                }
+            }
+            
+            fallbackDownloadBlob(blob, filename) {
+                try {
+                    // Check for IE/old Edge support
+                    if (window.navigator && window.navigator.msSaveOrOpenBlob) {
+                        window.navigator.msSaveOrOpenBlob(blob, filename);
+                        return;
+                    }
+                    
+                    // Modern browsers
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                } catch (error) {
+                    console.error('Fallback download failed:', error);
+                    alert('Download failed. Please try again or contact support.');
+                }
             }
 
             generateChart() {
