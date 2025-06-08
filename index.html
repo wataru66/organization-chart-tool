@@ -2137,9 +2137,11 @@
                     grade: '',
                     memo: '',
                     borderColor: '#000000',
-                    headerBgColor: '#ffffff',
+                    headerBgColor: '#f5f5f5',
                     headerTextColor: '#000000'
                 };
+                console.log('[CREATE_ROW] Created new row data:', newRowData);
+                return newRowData;
             }
 
             addRowAtTop() {
@@ -2709,15 +2711,26 @@
             }
 
             getTableDataAsRaw() {
-                const processor = new window.OrgChartTool.DataProcessor();
-                return this.data.map(row => {
-                    const rawRow = new Array(17).fill('');
-                    Object.keys(processor.COLUMN_MAPPING).forEach(key => {
-                        const index = processor.COLUMN_MAPPING[key];
-                        rawRow[index] = row[key] || '';
-                    });
-                    return rawRow;
-                });
+                // Convert object data back to raw array format for export
+                return this.data.map(row => [
+                    row.level,
+                    row.teamName,
+                    row.exactTeamName,
+                    row.upperTeam,
+                    row.teamId,
+                    row.role,
+                    row.role2ndLang,
+                    row.teamBoss,
+                    row.picName,
+                    row.picName2ndLang,
+                    row.concurrent,
+                    row.employeeCd,
+                    row.grade,
+                    row.memo,
+                    row.borderColor,
+                    row.headerBgColor,
+                    row.headerTextColor
+                ]);
             }
             
             isActive() {
