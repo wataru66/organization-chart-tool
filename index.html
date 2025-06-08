@@ -1765,7 +1765,15 @@
                 });
             }
 
-            render(rawData) {
+            render(rawData, preserveScrollPosition = false) {
+                // Remember scroll position if requested
+                let savedScrollTop = 0;
+                const tableContainer = document.querySelector('.table-container');
+                if (preserveScrollPosition && tableContainer) {
+                    savedScrollTop = tableContainer.scrollTop;
+                    console.log('[RENDER] Preserving scroll position:', savedScrollTop);
+                }
+                
                 this.data = this.convertRawDataToTableData(rawData);
                 this.container.innerHTML = '';
                 
@@ -1892,6 +1900,17 @@
                 
                 tableWrapper.appendChild(table);
                 this.container.appendChild(tableWrapper);
+                
+                // Restore scroll position if preserved
+                if (preserveScrollPosition && savedScrollTop > 0) {
+                    setTimeout(() => {
+                        const newTableContainer = document.querySelector('.table-container');
+                        if (newTableContainer) {
+                            newTableContainer.scrollTop = savedScrollTop;
+                            console.log('[RENDER] Scroll position restored to:', savedScrollTop);
+                        }
+                    }, 10);
+                }
             }
 
             createTableRow(rowData, index) {
@@ -2232,7 +2251,7 @@
                     const temp = this.data[index];
                     this.data[index] = this.data[index - 1];
                     this.data[index - 1] = temp;
-                    this.render(this.getTableDataAsRaw());
+                    this.render(this.getTableDataAsRaw(), true);
                 }
             }
 
@@ -2241,7 +2260,7 @@
                     const temp = this.data[index];
                     this.data[index] = this.data[index + 1];
                     this.data[index + 1] = temp;
-                    this.render(this.getTableDataAsRaw());
+                    this.render(this.getTableDataAsRaw(), true);
                 }
             }
 
@@ -2262,34 +2281,27 @@
                     
                     this.data.splice(index, 1);
                     this.selectedRows.delete(index);
-                    this.render(this.getTableDataAsRaw());
                     
-                    // Restore scroll position
-                    if (tableContainer) {
-                        // If deleted row was near the bottom, adjust scroll to prevent over-scrolling
-                        const maxScroll = tableContainer.scrollHeight - tableContainer.clientHeight;
-                        const targetScroll = Math.min(currentScrollTop, maxScroll);
-                        tableContainer.scrollTop = targetScroll;
-                        
-                        // If there are still rows, try to focus on the row that took the deleted row's position
-                        setTimeout(() => {
-                            if (this.data.length > 0) {
-                                // Focus on the row at the same position (or the last row if index is now out of bounds)
-                                const focusIndex = Math.min(index, this.data.length - 1);
-                                const focusRowElement = document.querySelector(`tr[data-index="${focusIndex}"]`);
-                                if (focusRowElement) {
-                                    focusRowElement.style.backgroundColor = '#fff3e0';
-                                    focusRowElement.style.borderLeft = '4px solid #ff9800';
-                                    
-                                    // Remove focus highlight after 3 seconds
-                                    setTimeout(() => {
-                                        focusRowElement.style.backgroundColor = '';
-                                        focusRowElement.style.borderLeft = '';
-                                    }, 3000);
-                                }
+                    console.log('[DELETE_ROW] Current scroll position before render:', currentScrollTop);
+                    this.render(this.getTableDataAsRaw(), true); // Use preserved scroll position
+                    
+                    // Additional focus highlighting for the replacement row
+                    setTimeout(() => {
+                        if (this.data.length > 0) {
+                            const focusIndex = Math.min(index, this.data.length - 1);
+                            const focusRowElement = document.querySelector(`tr[data-index="${focusIndex}"]`);
+                            if (focusRowElement) {
+                                focusRowElement.style.backgroundColor = '#fff3e0';
+                                focusRowElement.style.borderLeft = '4px solid #ff9800';
+                                
+                                // Remove focus highlight after 3 seconds
+                                setTimeout(() => {
+                                    focusRowElement.style.backgroundColor = '';
+                                    focusRowElement.style.borderLeft = '';
+                                }, 3000);
                             }
-                        }, 100);
-                    }
+                        }
+                    }, 100);
                 }
             }
 
@@ -2314,8 +2326,8 @@
             
             toggleColumn(columnName, isVisible) {
                 this.columnVisibility.set(columnName, isVisible);
-                // Re-render the table with new column visibility
-                this.render(this.getTableDataAsRaw());
+                // Re-render the table with new column visibility, preserve scroll position
+                this.render(this.getTableDataAsRaw(), true);
             }
 
             validateData() {
