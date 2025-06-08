@@ -4222,10 +4222,25 @@
                 
                 // Header text (team name) - center aligned
                 if (org.teamName) {
+                    // First pass to calculate text height for proper vertical centering
+                    const tempTextResult = this.createWrappedText(
+                        org.teamName,
+                        width / 2,
+                        headerHeight / 2,
+                        textMaxWidth,
+                        { family: 'Arial, sans-serif', size: fontConfig.headerSize, weight: 'bold' },
+                        customTextColor,
+                        'middle'
+                    );
+                    
+                    // Calculate proper vertical center position based on text height
+                    const textHeight = tempTextResult.height;
+                    const centerY = headerHeight / 2 - textHeight / 2 + parseInt(fontConfig.headerSize) * 0.7;
+                    
                     const teamTextResult = this.createWrappedText(
                         org.teamName,
                         width / 2,
-                        headerHeight / 2 + 6,
+                        centerY,
                         textMaxWidth,
                         { family: 'Arial, sans-serif', size: fontConfig.headerSize, weight: 'bold' },
                         customTextColor,
@@ -4436,6 +4451,7 @@
                 textElement.setAttribute('font-size', style.size || '12px');
                 textElement.setAttribute('font-weight', style.weight || 'normal');
                 textElement.setAttribute('fill', color || '#333333');
+                textElement.setAttribute('dominant-baseline', 'hanging');
                 textElement.textContent = text;
                 return textElement;
             }
