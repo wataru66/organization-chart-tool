@@ -1984,30 +1984,79 @@
             }
 
             editCell(rowIndex, column) {
+                console.log('[EDIT_CELL] Attempting to edit cell:', rowIndex, column);
+                
                 if (this.currentEditCell) {
+                    console.log('[EDIT_CELL] Saving current edit first');
                     this.saveCurrentEdit();
                 }
                 
-                const cell = document.querySelector(`tr[data-index="${rowIndex}"] td[data-column="${column}"] span`);
-                if (!cell) return;
+                // Try multiple selectors to find the cell
+                let cell = document.querySelector(`tr[data-index="${rowIndex}"] td[data-column="${column}"] span`);
                 
-                const currentValue = this.data[rowIndex][column] || '';
+                // Fallback: try finding by traversing the row
+                if (!cell) {
+                    console.log('[EDIT_CELL] Primary selector failed, trying fallback');
+                    const row = document.querySelector(`tr[data-index="${rowIndex}"]`);
+                    if (row) {
+                        const targetTd = row.querySelector(`td[data-column="${column}"]`);
+                        if (targetTd) {
+                            cell = targetTd.querySelector('span');
+                        }
+                    }
+                }
+                
+                if (!cell) {
+                    console.error('[EDIT_CELL] Could not find cell for editing:', { rowIndex, column });
+                    return;
+                }
+                
+                const currentValue = this.data[rowIndex] ? (this.data[rowIndex][column] || '') : '';
+                console.log('[EDIT_CELL] Current value:', currentValue);
+                
                 const input = document.createElement('input');
                 input.type = 'text';
                 input.className = 'cell-editor';
                 input.value = currentValue;
                 
-                input.onblur = () => this.saveCurrentEdit();
+                // Prevent event bubbling and add enhanced event handling
+                input.onclick = (e) => e.stopPropagation();
+                input.onblur = () => {
+                    console.log('[EDIT_CELL] Input blur event');
+                    this.saveCurrentEdit();
+                };
                 input.onkeydown = (e) => {
-                    if (e.key === 'Enter') this.saveCurrentEdit();
-                    if (e.key === 'Escape') this.cancelEdit();
+                    console.log('[EDIT_CELL] Key pressed:', e.key);
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.saveCurrentEdit();
+                    }
+                    if (e.key === 'Escape') {
+                        e.preventDefault();
+                        this.cancelEdit();
+                    }
                 };
                 
                 this.currentEditCell = { rowIndex, column, input, cell, originalValue: currentValue };
                 cell.innerHTML = '';
                 cell.appendChild(input);
-                input.focus();
-                input.select();
+                
+                // Enhanced focus with error handling
+                try {
+                    input.focus();
+                    input.select();
+                    console.log('[EDIT_CELL] Input focused and selected');
+                } catch (error) {
+                    console.error('[EDIT_CELL] Error focusing input:', error);
+                    // Fallback: try focus without select
+                    setTimeout(() => {
+                        try {
+                            input.focus();
+                        } catch (e) {
+                            console.error('[EDIT_CELL] Fallback focus failed:', e);
+                        }
+                    }, 10);
+                }
             }
 
             saveCurrentEdit() {
@@ -2084,19 +2133,40 @@
                 span.style.cursor = 'pointer';
                 span.style.padding = '4px';
                 span.title = 'クリックで編集';
+                span.style.userSelect = 'none'; // Prevent text selection conflicts
                 
-                const cellValue = value || '';
-                if (!cellValue) {
+                const cellValue = value !== undefined && value !== null ? String(value).trim() : '';
+                if (!cellValue || cellValue === '') {
                     span.style.color = '#999';
                     span.style.fontStyle = 'italic';
                     span.textContent = '(空白)';
                 } else {
+                    span.style.color = '';
+                    span.style.fontStyle = '';
                     span.textContent = cellValue;
                 }
                 
-                // Add click event listener
-                span.addEventListener('click', () => {
+                // Ensure minimum clickable area for short text like "P.E"
+                if (cellValue.length <= 3) {
+                    span.style.minWidth = '30px';
+                    span.style.textAlign = 'left';
+                }
+                
+                // Add unique identifier for debugging
+                span.dataset.editRow = rowIndex;
+                span.dataset.editColumn = column;
+                
+                // Add enhanced click event listener with debugging
+                span.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('[SPAN_CLICK] Clicked cell:', rowIndex, column, 'value:', cellValue);
                     this.editCell(rowIndex, column);
+                });
+                
+                // Add mousedown event as backup
+                span.addEventListener('mousedown', (e) => {
+                    console.log('[SPAN_MOUSEDOWN] Mouse down on cell:', rowIndex, column);
                 });
                 
                 return span;
