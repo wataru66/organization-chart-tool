@@ -2120,7 +2120,8 @@
 
 
             createNewRowData(inheritedLevel = '1') {
-                return {
+                console.log('[CREATE_ROW] Creating new row with inherited level:', inheritedLevel);
+                const newRowData = {
                     level: parseInt(inheritedLevel) || 1,
                     teamName: 'New Team',
                     exactTeamName: '',
@@ -2177,12 +2178,21 @@
                 // Get level from the row that was clicked (for level inheritance)
                 let newRowLevel = '1'; // default level
                 if (index >= 0 && this.data[index]) {
-                    const currentRowLevel = this.data[index][0]; // Level is in column 0
+                    // Check if data is object format or array format
+                    let currentRowLevel;
+                    if (Array.isArray(this.data[index])) {
+                        currentRowLevel = this.data[index][0]; // Level is in column 0 for array format
+                    } else if (typeof this.data[index] === 'object') {
+                        currentRowLevel = this.data[index].level; // Level property for object format
+                    }
+                    
                     if (currentRowLevel) {
                         newRowLevel = currentRowLevel.toString();
+                        console.log('[ADD_ROW] Inheriting level:', newRowLevel, 'from row:', index);
                     }
                 }
                 
+                console.log('[ADD_ROW] Creating new row with level:', newRowLevel);
                 const newRow = this.createNewRowData(newRowLevel);
                 
                 // Remember current scroll position
