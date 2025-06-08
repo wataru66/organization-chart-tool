@@ -1940,7 +1940,7 @@
                                     onchange="window.OrgChartTool.tableEditor.updateCell(${index}, '${col}', this.value)">
                             `;
                         } else {
-                            td.innerHTML = this.createEditableSpan(index, col, rowData[col]);
+                            td.appendChild(this.createEditableSpan(index, col, rowData[col]));
                         }
                         
                         tr.appendChild(td);
@@ -1986,7 +1986,28 @@
                 this.updateCell(rowIndex, column, newValue);
                 
                 // Restore the cell with proper formatting
-                cell.innerHTML = this.createEditableSpan(rowIndex, column, newValue);
+                const span = document.createElement('span');
+                span.style.display = 'block';
+                span.style.minHeight = '20px';
+                span.style.cursor = 'pointer';
+                span.style.padding = '4px';
+                span.title = 'クリックで編集';
+                
+                if (!newValue) {
+                    span.style.color = '#999';
+                    span.style.fontStyle = 'italic';
+                    span.textContent = '(空白)';
+                } else {
+                    span.textContent = newValue;
+                }
+                
+                // Add click event listener directly
+                span.addEventListener('click', () => {
+                    this.editCell(rowIndex, column);
+                });
+                
+                cell.innerHTML = '';
+                cell.appendChild(span);
                 
                 this.currentEditCell = null;
             }
@@ -1997,17 +2018,55 @@
                 const { rowIndex, column, cell, originalValue } = this.currentEditCell;
                 
                 // Restore the cell with proper formatting
-                cell.innerHTML = this.createEditableSpan(rowIndex, column, originalValue);
+                const span = document.createElement('span');
+                span.style.display = 'block';
+                span.style.minHeight = '20px';
+                span.style.cursor = 'pointer';
+                span.style.padding = '4px';
+                span.title = 'クリックで編集';
+                
+                if (!originalValue) {
+                    span.style.color = '#999';
+                    span.style.fontStyle = 'italic';
+                    span.textContent = '(空白)';
+                } else {
+                    span.textContent = originalValue;
+                }
+                
+                // Add click event listener directly
+                span.addEventListener('click', () => {
+                    this.editCell(rowIndex, column);
+                });
+                
+                cell.innerHTML = '';
+                cell.appendChild(span);
                 
                 this.currentEditCell = null;
             }
 
             createEditableSpan(rowIndex, column, value) {
+                const span = document.createElement('span');
+                span.style.display = 'block';
+                span.style.minHeight = '20px';
+                span.style.cursor = 'pointer';
+                span.style.padding = '4px';
+                span.title = 'クリックで編集';
+                
                 const cellValue = value || '';
-                const displayValue = cellValue || '(空白)';
-                return `<span onclick="window.OrgChartTool.tableEditor.editCell(${rowIndex}, '${column}')" 
-                    style="display: block; min-height: 20px; cursor: pointer; padding: 4px; ${cellValue ? '' : 'color: #999; font-style: italic;'}"
-                    title="クリックで編集">${displayValue}</span>`;
+                if (!cellValue) {
+                    span.style.color = '#999';
+                    span.style.fontStyle = 'italic';
+                    span.textContent = '(空白)';
+                } else {
+                    span.textContent = cellValue;
+                }
+                
+                // Add click event listener
+                span.addEventListener('click', () => {
+                    this.editCell(rowIndex, column);
+                });
+                
+                return span;
             }
 
             updateCell(rowIndex, column, value) {
