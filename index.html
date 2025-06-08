@@ -966,8 +966,8 @@
                 exportSVG: "Export SVG",
                 exportPNG: "Export PNG",
                 exportHTML: "Export HTML",
-                exportEmptyTable: "Export Empty Table",
-                exportCurrentData: "Export Current Data",
+                exportEmptyTable: "Export Empty Table to Excel",
+                exportCurrentData: "Export Current Table to Excel",
                 languageLabel: "Language:",
                 startingTeam: "Starting Team:",
                 levelLimit: "Level Limit:",
@@ -1041,8 +1041,8 @@
                 exportSVG: "SVGエクスポート",
                 exportPNG: "PNGエクスポート",
                 exportHTML: "HTMLエクスポート",
-                exportEmptyTable: "空テーブル出力",
-                exportCurrentData: "現在のデータを出力",
+                exportEmptyTable: "空テーブルをエクセルで出力",
+                exportCurrentData: "現在のテーブル情報をエクセルとして出力",
                 languageLabel: "言語:",
                 startingTeam: "起点チーム:",
                 levelLimit: "階層制限:",
@@ -1116,8 +1116,8 @@
                 exportSVG: "Ekspor SVG",
                 exportPNG: "Ekspor PNG",
                 exportHTML: "Ekspor HTML",
-                exportEmptyTable: "Ekspor Tabel Kosong", 
-                exportCurrentData: "Ekspor Data Saat Ini",
+                exportEmptyTable: "Ekspor Tabel Kosong ke Excel", 
+                exportCurrentData: "Ekspor Tabel Saat Ini ke Excel",
                 languageLabel: "Bahasa:",
                 startingTeam: "Tim Awal:",
                 levelLimit: "Batas Level:",
@@ -2119,9 +2119,9 @@
             }
 
 
-            createNewRowData() {
+            createNewRowData(inheritedLevel = '1') {
                 return {
-                    level: 1,
+                    level: parseInt(inheritedLevel) || 1,
                     teamName: 'New Team',
                     exactTeamName: '',
                     upperTeam: 'TOP',
@@ -2142,15 +2142,73 @@
             }
 
             addRowAtTop() {
-                const newRow = this.createNewRowData();
+                const newRow = this.createNewRowData('1'); // Top level is always 1
+                
+                // Remember current scroll position
+                const tableContainer = document.querySelector('.table-container');
+                const currentScrollTop = tableContainer ? tableContainer.scrollTop : 0;
+                
                 this.data.unshift(newRow);
                 this.render(this.getTableDataAsRaw());
+                
+                // Restore scroll position and highlight new row
+                if (tableContainer) {
+                    tableContainer.scrollTop = currentScrollTop;
+                }
+                
+                // Highlight the newly added row (first row)
+                setTimeout(() => {
+                    const newRowElement = document.querySelector(`tr[data-index="0"]`);
+                    if (newRowElement) {
+                        newRowElement.style.backgroundColor = '#e3f2fd';
+                        newRowElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        
+                        // Remove highlight after 2 seconds
+                        setTimeout(() => {
+                            newRowElement.style.backgroundColor = '';
+                        }, 2000);
+                    }
+                }, 100);
             }
 
             addRowAfter(index) {
-                const newRow = this.createNewRowData();
-                this.data.splice(index + 1, 0, newRow);
+                // Get level from the row that was clicked (for level inheritance)
+                let newRowLevel = '1'; // default level
+                if (index >= 0 && this.data[index]) {
+                    const currentRowLevel = this.data[index][0]; // Level is in column 0
+                    if (currentRowLevel) {
+                        newRowLevel = currentRowLevel.toString();
+                    }
+                }
+                
+                const newRow = this.createNewRowData(newRowLevel);
+                
+                // Remember current scroll position
+                const tableContainer = document.querySelector('.table-container');
+                const currentScrollTop = tableContainer ? tableContainer.scrollTop : 0;
+                
+                const insertIndex = index + 1;
+                this.data.splice(insertIndex, 0, newRow);
                 this.render(this.getTableDataAsRaw());
+                
+                // Restore scroll position
+                if (tableContainer) {
+                    tableContainer.scrollTop = currentScrollTop;
+                }
+                
+                // Highlight the newly added row
+                setTimeout(() => {
+                    const newRowElement = document.querySelector(`tr[data-index="${insertIndex}"]`);
+                    if (newRowElement) {
+                        newRowElement.style.backgroundColor = '#e3f2fd';
+                        newRowElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        
+                        // Remove highlight after 2 seconds
+                        setTimeout(() => {
+                            newRowElement.style.backgroundColor = '';
+                        }, 2000);
+                    }
+                }, 100);
             }
 
             moveRowUp(index) {
