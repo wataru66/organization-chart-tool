@@ -1,28 +1,30 @@
-# Organization Chart Tool (Call Name Version)
+# Organization Chart Tool v4
 
-A powerful web-based application for automatically generating interactive organization charts from Excel files. This tool supports custom styling, drag & drop editing, multiple export formats, and advanced features like fullscreen display and data validation.
+A powerful web-based application for automatically generating interactive organization charts from Excel files using Walker's Algorithm for optimal layout. Features real-time editing, multiple export formats, team-only view mode, and comprehensive multilingual support.
 
 ## 🚀 Features
 
 ### Core Functionality
+- **Walker's Algorithm Layout**: Advanced tree layout algorithm for beautiful, aesthetic organization charts
 - **Excel File Import**: Support for .xlsx and .xls files with drag & drop interface
-- **Interactive Chart Generation**: Automatically create visual organization charts with hierarchical layouts
-- **Real-time Data Editing**: Edit organization data directly in the browser with validation
-- **Multi-format Export**: SVG, PNG, HTML, and Excel export capabilities
+- **Real-time Chart Updates**: Instant updates when changing settings (font size, box size, filters)
+- **Team Names Only Mode**: Compact view showing only team names for overview purposes
+- **Multi-format Export**: SVG, PNG, HTML, and Excel export with proper padding and scaling
 
 ### Advanced Features
-- **Custom Color System**: 15-color palette with department presets and custom color support
-- **Manager Visibility Toggle**: Option to hide/show managers in the chart display
-- **Drag & Drop Row Reordering**: Rearrange data table rows with intuitive drag & drop
-- **Fullscreen Display**: Full-screen mode for better chart visualization
-- **Data Validation**: Comprehensive data validation with detailed error reporting
-- **Empty Template Export**: Generate Excel templates with proper formatting
+- **Starting Team Selection**: Generate charts from any organization as the root
+- **Level Limiting**: Control hierarchy depth (3, 4, 5 levels or unlimited)
+- **Team Name Comparison Table**: Automatic display of team name vs full name mappings
+- **Interactive Table Editing**: Edit organization data directly with real-time validation
+- **Custom Color System**: Support for border, background, and text color customization
+- **Settings Persistence**: All preferences saved locally and restored on reload
 
 ### UI/UX Features
-- **English Interface**: Fully internationalized with English as the default language
-- **Responsive Design**: Works on desktop and mobile devices
-- **Keyboard Shortcuts**: Ctrl+G (Generate), Ctrl+S (Export SVG), Ctrl+P (Print)
-- **Real-time Feedback**: Success/error notifications with detailed information
+- **Multilingual Support**: English, Japanese, and Indonesian interfaces
+- **Responsive Design**: Works seamlessly on desktop and mobile devices
+- **Real-time Updates**: All controls update the chart immediately without manual regeneration
+- **Fullscreen Mode**: Dedicated fullscreen view with optimized controls placement
+- **Smart Layout**: Prevents UI overlap with dynamic positioning and spacing
 
 ## 📋 System Requirements
 
@@ -40,8 +42,13 @@ A powerful web-based application for automatically generating interactive organi
 
 ### Option 1: Direct Use (Recommended)
 1. Clone or download the repository
-2. Open `src/index.html` in a modern web browser
+2. Open `index.html` in a modern web browser
 3. The application will automatically load all required dependencies
+
+### Option 2: Modular Version
+1. Use the `src/index.html` version for development
+2. All modules are separated in the `src/js/` directory
+3. Allows easier customization and development
 
 ### Option 2: Local Web Server
 ```bash
@@ -235,23 +242,36 @@ http://localhost:8000/src/index.html?demo=true
 
 ## 🔄 Version History
 
-### Version 1.1.0 (Current)
-- ✅ English interface standardization
-- ✅ Drag & drop row reordering
-- ✅ Manager visibility toggle
-- ✅ Empty Excel template export
-- ✅ Current data Excel export
-- ✅ Standalone HTML export
-- ✅ Fullscreen display mode
-- ✅ Enhanced color system with 15-color palette
-- ✅ Improved data validation
+### Version 4.0.0 (Current)
+- ✅ **Walker's Algorithm Implementation**: Beautiful, mathematically optimal tree layouts
+- ✅ **Team Names Only Mode**: Compact view for organizational overview
+- ✅ **Real-time Updates**: All controls update charts immediately
+- ✅ **Starting Team Selection**: Generate charts from any organization as root
+- ✅ **Level Limiting**: Control hierarchy depth display
+- ✅ **Team Name Comparison Table**: Automatic mapping display for different names
+- ✅ **Enhanced PNG Export**: Added padding and proper scaling
+- ✅ **Multilingual Support**: English, Japanese, Indonesian interfaces
+- ✅ **Settings Persistence**: All preferences saved and restored
+- ✅ **Smart UI Layout**: Prevents overlap with dynamic positioning
+- ✅ **Comprehensive Bug Fixes**: Resolved connection line issues, font sizing, layout problems
+
+### Version 3.0.0
+- Modular architecture with separated components
+- Enhanced export functionality
+- Improved data validation
+- Better error handling
+
+### Version 2.0.0
+- Drag & drop row reordering
+- Manager visibility toggle
+- Custom color system
+- Fullscreen display mode
 
 ### Version 1.0.0
 - Basic organization chart generation
 - Excel file import
 - SVG/PNG export
 - Data table editing
-- Japanese interface
 
 ## 🤝 Contributing
 
@@ -263,22 +283,33 @@ http://localhost:8000/src/index.html?demo=true
 
 ### File Structure
 ```
-src/
-├── index.html              # Main application page
-├── js/
-│   ├── config.js           # Configuration and translations
-│   ├── main.js             # Application initialization
-│   ├── ui-controller.js    # UI management
-│   ├── data-processor.js   # Data parsing and validation
-│   ├── chart-renderer.js   # Chart visualization
-│   ├── layout-calculator.js # Layout algorithms
-│   ├── export-utils.js     # Export functionality
-│   └── data-table-manager.js # Table editing
-├── styles/
-│   ├── main.css           # Main styles
-│   └── components.css     # Component styles
-└── templates/
-    └── SampleData.xlsx    # Sample data file
+organization-chart-tool/
+├── index.html                  # 🚀 Main application (standalone)
+├── src/                        # 🔧 Development version (modular)
+│   ├── index.html              # Modular version main page
+│   ├── js/                     # JavaScript modules
+│   │   ├── config.js           # Configuration and translations
+│   │   ├── main.js             # Application initialization
+│   │   ├── ui-controller.js    # UI management and real-time updates
+│   │   ├── data-processor.js   # Data parsing and validation
+│   │   ├── chart-renderer.js   # Chart visualization with Walker's Algorithm
+│   │   ├── layout-calculator.js # Walker's Algorithm implementation
+│   │   ├── export-utils.js     # Export functionality (SVG/PNG/HTML)
+│   │   └── data-table-manager.js # Interactive table editing
+│   ├── styles/                 # CSS stylesheets
+│   │   ├── main.css           # Main styles and responsive design
+│   │   └── components.css     # Component-specific styles
+│   ├── templates/              # Sample data
+│   │   └── Organization_Chart_Data.xlsx
+│   ├── org_chart_icon.svg     # Application icon/logo
+│   └── organization_chart_sample.xlsx # Sample data file
+├── docs/                       # 📚 Documentation
+│   ├── SPECIFICATION.md       # Technical specifications
+│   ├── BUG_FIX_REPORT.md     # Bug fix history
+│   └── [other technical docs]
+├── archive/                    # 🗄️ Development history and test files
+├── README.md                   # This documentation
+└── LICENSE                     # MIT License
 ```
 
 ## 📄 License

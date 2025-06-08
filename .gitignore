@@ -56,3 +56,22 @@ desktop.ini
 # Organization Chart Tool specific
 releases/*/
 *.backup
+*.broken
+*.bak
+*.draft
+*.dev
+
+# Archive folder content (keep structure but not all files)
+archive/test-*.html
+archive/debug-*.html
+archive/organization-chart-tool-*.html
+archive/prototype-mockup.html
+archive/simple-test.html
+archive/user-guide.html
+
+# Test and debug files (keep only essential ones)
+test-*.html
+debug-*.html
+debug-*.js
+simple-test.html
+prototype-mockup.html

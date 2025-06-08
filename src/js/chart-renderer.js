@@ -970,6 +970,7 @@ class ChartRenderer {
         if (toOrg) line.setAttribute('data-to', toOrg);
         
         this.container.appendChild(line);
+        ConfigUtils.debugLog(`垂直線作成: ${fromOrg} → ${toOrg}, x=${x}, y=${y}, h=${height}`, 'render');
     }
 
     /**
@@ -994,6 +995,7 @@ class ChartRenderer {
         if (toOrg) line.setAttribute('data-to', toOrg);
         
         this.container.appendChild(line);
+        ConfigUtils.debugLog(`水平線作成: ${fromOrg} → ${toOrg}, x=${x}, y=${y}, w=${width}`, 'render');
     }
 
     /**

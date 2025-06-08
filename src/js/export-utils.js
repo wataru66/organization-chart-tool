@@ -571,15 +571,46 @@ class ExportUtils {
         }
 
         try {
-            const htmlContent = this.createStandaloneHTML();
+            // Debug: Check current container content
+            const containerContent = this.chartRenderer.container.innerHTML;
+            const orgBoxes = this.chartRenderer.container.querySelectorAll('.org-box').length;
+            const connectionLines = this.chartRenderer.container.querySelectorAll('.connection-line').length;
             
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
-            const filename = `Organization_Chart_${timestamp}.html`;
+            ConfigUtils.debugLog(`HTML Export Debug - Container content length: ${containerContent.length}`, 'export');
+            ConfigUtils.debugLog(`HTML Export Debug - Org boxes: ${orgBoxes}, Connection lines: ${connectionLines}`, 'export');
             
-            this.downloadText(htmlContent, filename, 'text/html');
+            // Wait a bit to ensure connection lines are rendered (they use setTimeout in chart-renderer.js)
+            setTimeout(() => {
+                try {
+                    const finalConnectionLines = this.chartRenderer.container.querySelectorAll('.connection-line').length;
+                    ConfigUtils.debugLog(`HTML Export Debug - Final connection lines after wait: ${finalConnectionLines}`, 'export');
+                    
+                    // Additional validation: check if container has any content at all
+                    if (this.chartRenderer.container.children.length === 0) {
+                        throw new Error('Chart container is empty after timeout. Cannot export.');
+                    }
+                    
+                    // Log connection line details for debugging
+                    const connectionLines = this.chartRenderer.container.querySelectorAll('.connection-line');
+                    connectionLines.forEach((line, index) => {
+                        ConfigUtils.debugLog(`Connection line ${index}: ${line.className}, style: ${line.style.cssText}`, 'export');
+                    });
+                    
+                    const htmlContent = this.createStandaloneHTML();
+                    
+                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+                    const filename = `Organization_Chart_${timestamp}.html`;
+                    
+                    this.downloadText(htmlContent, filename, 'text/html');
+                    
+                    ConfigUtils.debugLog('HTML出力完了', 'export');
+                    this.showExportSuccess(t ? t('htmlExported', { filename }) : `Standalone HTML "${filename}" exported successfully.`);
+                } catch (error) {
+                    ConfigUtils.debugLog(`HTML出力エラー(遅延実行): ${error.message}`, 'error');
+                    this.showExportError('Error exporting HTML: ' + error.message);
+                }
+            }, 100); // Wait 100ms to ensure connection lines are rendered
             
-            ConfigUtils.debugLog('HTML出力完了', 'export');
-            this.showExportSuccess(t ? t('htmlExported', { filename }) : `Standalone HTML "${filename}" exported successfully.`);
         } catch (error) {
             ConfigUtils.debugLog(`HTML出力エラー: ${error.message}`, 'error');
             this.showExportError('Error exporting HTML: ' + error.message);
@@ -595,6 +626,17 @@ class ExportUtils {
         const legends = this.extractLegends();
         const customCSS = this.generateCustomCSS();
         const chartDimensions = this.getChartDimensions();
+        
+        // Debug: Log what we're actually capturing
+        ConfigUtils.debugLog(`createStandaloneHTML Debug - Chart HTML length: ${chartHTML.length}`, 'export');
+        ConfigUtils.debugLog(`createStandaloneHTML Debug - Chart HTML preview: ${chartHTML.substring(0, 200)}...`, 'export');
+        
+        // Debug: Count elements in captured HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = chartHTML;
+        const capturedOrgBoxes = tempDiv.querySelectorAll('.org-box').length;
+        const capturedConnectionLines = tempDiv.querySelectorAll('.connection-line').length;
+        ConfigUtils.debugLog(`createStandaloneHTML Debug - Captured org boxes: ${capturedOrgBoxes}, connection lines: ${capturedConnectionLines}`, 'export');
         
         return `<!DOCTYPE html>
 <html lang="en">
@@ -797,6 +839,7 @@ class ExportUtils {
             position: absolute;
             background: #333;
             z-index: 1;
+            pointer-events: none;
         }
 
         .connection-line.horizontal {
@@ -1291,26 +1334,38 @@ class ExportUtils {
         const computed = getComputedStyle(root);
         
         // 現在のサイズ設定を適用
+        const orgBoxWidth = computed.getPropertyValue('--org-box-width').trim() || '85px';
+        const orgBoxHeight = computed.getPropertyValue('--org-box-height').trim() || '100px';
+        const fontSizeOrg = computed.getPropertyValue('--font-size-org').trim() || '12px';
+        const fontSizeName = computed.getPropertyValue('--font-size-name').trim() || '10px';
+        const fontSizeRole = computed.getPropertyValue('--font-size-role').trim() || '9px';
+        
         customCSS += `
+        /* Dynamic size settings from current chart */
         .org-box {
-            width: ${computed.getPropertyValue('--org-box-width')} !important;
-            height: ${computed.getPropertyValue('--org-box-height')} !important;
-            font-size: ${computed.getPropertyValue('--font-size-org')} !important;
+            width: ${orgBoxWidth} !important;
+            height: ${orgBoxHeight} !important;
+            font-size: ${fontSizeOrg} !important;
         }
         .org-header {
-            font-size: ${computed.getPropertyValue('--font-size-org')} !important;
+            font-size: ${fontSizeOrg} !important;
         }
         .org-manager {
-            font-size: ${computed.getPropertyValue('--font-size-name')} !important;
+            font-size: ${fontSizeName} !important;
         }
         .org-manager-role {
-            font-size: ${computed.getPropertyValue('--font-size-role')} !important;
+            font-size: ${fontSizeRole} !important;
         }
         .org-advisor {
-            font-size: calc(${computed.getPropertyValue('--font-size-name')} * 0.85) !important;
+            font-size: calc(${fontSizeName} * 0.85) !important;
         }
         .org-advisor-role {
-            font-size: calc(${computed.getPropertyValue('--font-size-role')} * 0.85) !important;
+            font-size: calc(${fontSizeRole} * 0.85) !important;
+        }
+        
+        /* Ensure connection lines use proper color */
+        .connection-line {
+            background: ${computed.getPropertyValue('--line-color').trim() || '#333'} !important;
         }
         `;
         
