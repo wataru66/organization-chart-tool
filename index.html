@@ -2216,23 +2216,57 @@
                 console.log('[ADD_ROW] Creating new row with level:', newRowLevel);
                 const newRow = this.createNewRowData(newRowLevel);
                 
-                // Remember current scroll position
-                const tableContainer = document.querySelector('.table-container');
-                const currentScrollTop = tableContainer ? tableContainer.scrollTop : 0;
-                
                 const insertIndex = index + 1;
                 this.data.splice(insertIndex, 0, newRow);
-                this.render(this.getTableDataAsRaw());
                 
-                // Restore scroll position
-                if (tableContainer) {
-                    tableContainer.scrollTop = currentScrollTop;
-                }
-                
-                // Highlight the newly added row
-                setTimeout(() => {
-                    const newRowElement = document.querySelector(`tr[data-index="${insertIndex}"]`);
-                    if (newRowElement) {
+                // Find the reference row and insert new row after it
+                const referenceRow = document.querySelector(`tr[data-index="${index}"]`);
+                if (referenceRow) {
+                    // Create new DOM row
+                    const newRowElement = this.createTableRow(newRow, insertIndex);
+                    
+                    // Insert after reference row
+                    referenceRow.parentNode.insertBefore(newRowElement, referenceRow.nextSibling);
+                    
+                    // Update indices for all subsequent rows
+                    const allRows = document.querySelectorAll('tbody tr[data-index]');
+                    allRows.forEach(row => {
+                        const currentIndex = parseInt(row.dataset.index);
+                        if (currentIndex > index && row !== newRowElement) {
+                            const newIndex = currentIndex + 1;
+                            row.dataset.index = newIndex;
+                            
+                            // Update onclick handlers
+                            const addButton = row.querySelector('button[onclick*="addRowAfter"]');
+                            if (addButton) {
+                                addButton.setAttribute('onclick', `window.OrgChartTool.tableEditor.addRowAfter(${newIndex})`);
+                            }
+                            
+                            const deleteButton = row.querySelector('button[onclick*="deleteRow"]');
+                            if (deleteButton) {
+                                deleteButton.setAttribute('onclick', `window.OrgChartTool.tableEditor.deleteRow(${newIndex})`);
+                            }
+                            
+                            const moveUpButton = row.querySelector('button[onclick*="moveRowUp"]');
+                            if (moveUpButton) {
+                                moveUpButton.setAttribute('onclick', `window.OrgChartTool.tableEditor.moveRowUp(${newIndex})`);
+                            }
+                            
+                            const moveDownButton = row.querySelector('button[onclick*="moveRowDown"]');
+                            if (moveDownButton) {
+                                moveDownButton.setAttribute('onclick', `window.OrgChartTool.tableEditor.moveRowDown(${newIndex})`);
+                            }
+                            
+                            // Update row number display
+                            const rowNumberCell = row.querySelector('.row-number');
+                            if (rowNumberCell) {
+                                rowNumberCell.textContent = newIndex + 1;
+                            }
+                        }
+                    });
+                    
+                    // Highlight the newly added row
+                    setTimeout(() => {
                         newRowElement.style.backgroundColor = '#1976d2';
                         newRowElement.style.color = '#ffffff';
                         newRowElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -2242,8 +2276,10 @@
                             newRowElement.style.backgroundColor = '';
                             newRowElement.style.color = '';
                         }, 5000);
-                    }
-                }, 100);
+                    }, 100);
+                    
+                    console.log('[ADD_ROW] Row added successfully, scroll position preserved');
+                }
             }
 
             moveRowUp(index) {
@@ -2266,42 +2302,76 @@
 
             deleteRow(index) {
                 if (confirm('Are you sure you want to delete this row?')) {
-                    // Remember current scroll position
-                    const tableContainer = document.querySelector('.table-container');
-                    const currentScrollTop = tableContainer ? tableContainer.scrollTop : 0;
+                    console.log('[DELETE_ROW] Starting row deletion for index:', index);
                     
-                    // Remember the row position for focusing
-                    const deletedRowElement = document.querySelector(`tr[data-index="${index}"]`);
-                    let rowTop = 0;
-                    if (deletedRowElement && tableContainer) {
-                        const containerRect = tableContainer.getBoundingClientRect();
-                        const rowRect = deletedRowElement.getBoundingClientRect();
-                        rowTop = rowRect.top - containerRect.top + tableContainer.scrollTop;
-                    }
-                    
-                    this.data.splice(index, 1);
-                    this.selectedRows.delete(index);
-                    
-                    console.log('[DELETE_ROW] Current scroll position before render:', currentScrollTop);
-                    this.render(this.getTableDataAsRaw(), true); // Use preserved scroll position
-                    
-                    // Additional focus highlighting for the replacement row
-                    setTimeout(() => {
-                        if (this.data.length > 0) {
-                            const focusIndex = Math.min(index, this.data.length - 1);
-                            const focusRowElement = document.querySelector(`tr[data-index="${focusIndex}"]`);
-                            if (focusRowElement) {
-                                focusRowElement.style.backgroundColor = '#fff3e0';
-                                focusRowElement.style.borderLeft = '4px solid #ff9800';
+                    // Find and remove the specific row element from DOM
+                    const rowToDelete = document.querySelector(`tr[data-index="${index}"]`);
+                    if (rowToDelete) {
+                        // Remove data first
+                        this.data.splice(index, 1);
+                        this.selectedRows.delete(index);
+                        
+                        // Remove the DOM element
+                        rowToDelete.remove();
+                        
+                        // Update all subsequent row indices
+                        const allRows = document.querySelectorAll('tbody tr[data-index]');
+                        allRows.forEach(row => {
+                            const currentIndex = parseInt(row.dataset.index);
+                            if (currentIndex > index) {
+                                const newIndex = currentIndex - 1;
+                                row.dataset.index = newIndex;
                                 
-                                // Remove focus highlight after 3 seconds
-                                setTimeout(() => {
-                                    focusRowElement.style.backgroundColor = '';
-                                    focusRowElement.style.borderLeft = '';
-                                }, 3000);
+                                // Update onclick handlers in the row
+                                const addButton = row.querySelector('button[onclick*="addRowAfter"]');
+                                if (addButton) {
+                                    addButton.setAttribute('onclick', `window.OrgChartTool.tableEditor.addRowAfter(${newIndex})`);
+                                }
+                                
+                                const deleteButton = row.querySelector('button[onclick*="deleteRow"]');
+                                if (deleteButton) {
+                                    deleteButton.setAttribute('onclick', `window.OrgChartTool.tableEditor.deleteRow(${newIndex})`);
+                                }
+                                
+                                const moveUpButton = row.querySelector('button[onclick*="moveRowUp"]');
+                                if (moveUpButton) {
+                                    moveUpButton.setAttribute('onclick', `window.OrgChartTool.tableEditor.moveRowUp(${newIndex})`);
+                                }
+                                
+                                const moveDownButton = row.querySelector('button[onclick*="moveRowDown"]');
+                                if (moveDownButton) {
+                                    moveDownButton.setAttribute('onclick', `window.OrgChartTool.tableEditor.moveRowDown(${newIndex})`);
+                                }
+                                
+                                // Update row number display
+                                const rowNumberCell = row.querySelector('.row-number');
+                                if (rowNumberCell) {
+                                    rowNumberCell.textContent = newIndex + 1;
+                                }
                             }
-                        }
-                    }, 100);
+                        });
+                        
+                        // Highlight the row that took the deleted row's position
+                        setTimeout(() => {
+                            if (this.data.length > 0) {
+                                const focusIndex = Math.min(index, this.data.length - 1);
+                                const focusRowElement = document.querySelector(`tr[data-index="${focusIndex}"]`);
+                                if (focusRowElement) {
+                                    focusRowElement.style.backgroundColor = '#fff3e0';
+                                    focusRowElement.style.borderLeft = '4px solid #ff9800';
+                                    focusRowElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    
+                                    // Remove focus highlight after 3 seconds
+                                    setTimeout(() => {
+                                        focusRowElement.style.backgroundColor = '';
+                                        focusRowElement.style.borderLeft = '';
+                                    }, 3000);
+                                }
+                            }
+                        }, 100);
+                        
+                        console.log('[DELETE_ROW] Row deleted successfully, scroll position preserved');
+                    }
                 }
             }
 
