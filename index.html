@@ -2160,13 +2160,15 @@
                 setTimeout(() => {
                     const newRowElement = document.querySelector(`tr[data-index="0"]`);
                     if (newRowElement) {
-                        newRowElement.style.backgroundColor = '#e3f2fd';
+                        newRowElement.style.backgroundColor = '#1976d2';
+                        newRowElement.style.color = '#ffffff';
                         newRowElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         
-                        // Remove highlight after 2 seconds
+                        // Remove highlight after 5 seconds
                         setTimeout(() => {
                             newRowElement.style.backgroundColor = '';
-                        }, 2000);
+                            newRowElement.style.color = '';
+                        }, 5000);
                     }
                 }, 100);
             }
@@ -2200,13 +2202,15 @@
                 setTimeout(() => {
                     const newRowElement = document.querySelector(`tr[data-index="${insertIndex}"]`);
                     if (newRowElement) {
-                        newRowElement.style.backgroundColor = '#e3f2fd';
+                        newRowElement.style.backgroundColor = '#1976d2';
+                        newRowElement.style.color = '#ffffff';
                         newRowElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         
-                        // Remove highlight after 2 seconds
+                        // Remove highlight after 5 seconds
                         setTimeout(() => {
                             newRowElement.style.backgroundColor = '';
-                        }, 2000);
+                            newRowElement.style.color = '';
+                        }, 5000);
                     }
                 }, 100);
             }
