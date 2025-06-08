@@ -3712,16 +3712,27 @@
                 const boxConfig = this.getBoxConfigForSize(options.boxSize || 'medium');
                 console.log('[WALKER] Using box config:', boxConfig);
                 
-                // Convert to layout nodes
-                const layoutNodes = nodes.map(node => ({
-                    id: node.id,
-                    x: node.x,
-                    y: node.y,
-                    width: boxConfig.width || 138,
-                    height: boxConfig.height || 160,
-                    level: node.level,
-                    data: node.data
-                }));
+                // Convert to layout nodes with dynamic height calculation
+                const layoutNodes = nodes.map(node => {
+                    const baseWidth = boxConfig.width || 138;
+                    let nodeHeight = boxConfig.height || 160;
+                    
+                    // Calculate dynamic height based on team name length
+                    if (node.data && node.data.teamName) {
+                        const dynamicHeight = this.calculateNodeHeight(node.data.teamName, baseWidth, options);
+                        nodeHeight = Math.max(nodeHeight, dynamicHeight);
+                    }
+                    
+                    return {
+                        id: node.id,
+                        x: node.x,
+                        y: node.y,
+                        width: baseWidth,
+                        height: nodeHeight,
+                        level: node.level,
+                        data: node.data
+                    };
+                });
                 
                 // Create connections
                 organizations.forEach(org => {
@@ -3815,6 +3826,56 @@
                     console.warn('[LAYOUT] Error getting box config for size:', error);
                 }
                 return { width: 138, height: 160 };
+            }
+            
+            calculateNodeHeight(teamName, width, options) {
+                try {
+                    // Get font configuration
+                    const fontConfig = this.getFontConfig(options.fontSize || 'medium');
+                    const headerFontSize = parseInt(fontConfig.headerSize) || 13;
+                    const teamNamesOnly = options.teamNamesOnly || false;
+                    
+                    if (teamNamesOnly) {
+                        // For team names only, calculate header height based on text
+                        const padding = 8;
+                        const textMaxWidth = width - (padding * 2);
+                        const lineHeight = headerFontSize * 1.2;
+                        
+                        // Estimate number of lines needed for team name
+                        const avgCharWidth = headerFontSize * 0.6; // Rough estimate
+                        const charsPerLine = Math.floor(textMaxWidth / avgCharWidth);
+                        const estimatedLines = Math.ceil(teamName.length / charsPerLine);
+                        
+                        const textHeight = estimatedLines * lineHeight;
+                        const minHeaderHeight = 40;
+                        const headerPadding = 12;
+                        
+                        return Math.max(minHeaderHeight, textHeight + headerPadding);
+                    } else {
+                        // For normal mode, calculate full box height
+                        const baseHeight = parseInt(this.getBoxConfigForSize(options.boxSize || 'medium').height) || 160;
+                        const padding = 8;
+                        const textMaxWidth = width - (padding * 2);
+                        const lineHeight = headerFontSize * 1.2;
+                        
+                        // Estimate number of lines needed for team name
+                        const avgCharWidth = headerFontSize * 0.6;
+                        const charsPerLine = Math.floor(textMaxWidth / avgCharWidth);
+                        const estimatedLines = Math.ceil(teamName.length / charsPerLine);
+                        
+                        const textHeight = estimatedLines * lineHeight;
+                        const minHeaderHeight = 40;
+                        const headerPadding = 12;
+                        const dynamicHeaderHeight = Math.max(minHeaderHeight, textHeight + headerPadding);
+                        
+                        // If header needs to be larger, increase the total box height
+                        const headerDifference = Math.max(0, dynamicHeaderHeight - minHeaderHeight);
+                        return baseHeight + headerDifference;
+                    }
+                } catch (error) {
+                    console.warn('[LAYOUT] Error calculating node height:', error);
+                    return this.getBoxConfigForSize(options.boxSize || 'medium').height || 160;
+                }
             }
             
             getFontConfig(fontSize) {
@@ -4208,7 +4269,6 @@
                 
                 const width = position.width || parseInt(boxConfig.width) || 138;
                 let height = position.height || parseInt(boxConfig.height) || 160;
-                const headerHeight = 40;
                 const padding = 8;
                 const textMaxWidth = width - (padding * 2);
                 
@@ -4216,25 +4276,31 @@
                 const customHeaderBg = org.headerBgColor || (org.colors && org.colors.headerBgColor) || '#f5f5f5';
                 const customTextColor = org.headerTextColor || (org.colors && org.colors.headerTextColor) || '#000000';
                 
-                // Calculate content heights first
-                let contentHeight = headerHeight + padding;
+                // Calculate dynamic header height based on team name
+                let headerHeight = 40; // minimum header height
                 let textElements = [];
                 
-                // Header text (team name) - center aligned
+                // Header text (team name) - center aligned with dynamic header height
                 if (org.teamName) {
-                    // First pass to calculate text height for proper vertical centering
+                    // Calculate required text height for team name
                     const tempTextResult = this.createWrappedText(
                         org.teamName,
                         width / 2,
-                        headerHeight / 2,
+                        0, // temporary y position
                         textMaxWidth,
                         { family: 'Arial, sans-serif', size: fontConfig.headerSize, weight: 'bold' },
                         customTextColor,
                         'middle'
                     );
                     
-                    // Calculate proper vertical center position based on text height
                     const textHeight = tempTextResult.height;
+                    const minHeaderHeight = 40;
+                    const headerPadding = 12; // padding above and below text in header
+                    
+                    // Adjust header height to accommodate text with padding
+                    headerHeight = Math.max(minHeaderHeight, textHeight + headerPadding);
+                    
+                    // Calculate proper vertical center position within the dynamic header
                     const centerY = headerHeight / 2 - textHeight / 2 + parseInt(fontConfig.headerSize) * 0.7;
                     
                     const teamTextResult = this.createWrappedText(
@@ -4248,6 +4314,9 @@
                     );
                     textElements.push({ element: teamTextResult.element, isHeader: true });
                 }
+                
+                // Calculate content heights with dynamic header
+                let contentHeight = headerHeight + padding;
                 
                 // Role text - left aligned, gray color (skip if teamNamesOnly)
                 if (org.role && !teamNamesOnly) {
